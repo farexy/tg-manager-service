@@ -1,26 +1,46 @@
 ﻿using System.Threading.Tasks;
 using k8s;
 using k8s.Models;
+using MediatR;
 using Microsoft.AspNetCore.Mvc;
+using TG.Core.App.OperationResults;
+using TG.Manager.Service.Application.Commands;
+using TG.Manager.Service.Application.Queries;
 using TG.Manager.Service.Config;
+using TG.Manager.Service.Models.Response;
 
 namespace TG.Manager.Service.Controllers
 {
+    /// <summary>
+    /// Controller is for test purposes and will be removed.  
+    /// </summary>
     [ApiVersion("1.0")]
     [Route(ServiceConst.RoutePrefix)]
     public class AksController : ControllerBase
     {
-        [HttpGet]
-        public async Task Test()
+        private readonly IMediator _mediator; 
+
+        public AksController(IMediator mediator)
         {
-            var config = KubernetesClientConfiguration.BuildConfigFromConfigFile();
-            var client = new Kubernetes(config);
+            _mediator = mediator;
+        }
 
-            var endpoints = await client.ListNamespacedEndpointsWithHttpMessagesAsync("tg", labelSelector: "app=game-api");
-            var deployment = await Yaml.LoadAllFromFileAsync("D:\\repositories\\somnium\\tg-manager-service\\deployment.yaml");
-
-            
-            var res = await client.CreateNamespacedDeploymentWithHttpMessagesAsync(deployment[0] as V1Deployment, "tg");
+        [HttpGet]
+        public async Task<ActionResult> SetupServer()
+        {
+            var command = new SetupRealtimeServerInstanceCommand();
+            var result = await _mediator.Send(command);
+            return result.ToActionResult()
+                .NoContent();
+        }
+        
+        [HttpGet("endpoints")]
+        public async Task<ActionResult<AppEndpointAddressesResponse>> GetEndpoints([FromQuery] string app)
+        {
+            var query = new GetAppEndpointsQuery(app);
+            var result = await _mediator.Send(query);
+            return result.ToActionResult()
+                .Ok();
         }
     }
 }
