@@ -19,6 +19,7 @@ spec:
         environment: ##ENVIRONMENT##
         aadpodidbinding: ##LOCATION##-##ENVIRONMENT##-tg-azure-identity
     spec:
+      serviceAccountName: ##SERVICE_ACCOUNT##
       nodeSelector:
         pool: services
       tolerations:

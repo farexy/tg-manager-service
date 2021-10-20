@@ -10,6 +10,7 @@ variables:
   LOCATION: 'eastus2'
   SERVICE_ROUTE_PREFIX: 'manager'
   TENANT_ID: 076a5d2a-ce27-485a-a9d1-74ee993836cb
+  SERVICE_ACCOUNT: tg-manager
 
 .code_prep:
   before_script:
@@ -48,6 +49,10 @@ variables:
     - sed -i -e 's/##SERVICE_NAMESPACE##/'$SERVICE_NAMESPACE'/g' k8s/namespace.yaml
     - sed -i -e 's/##ENVIRONMENT##/'$ENVIRONMENT'/g' k8s/namespace.yaml
 
+    - sed -i -e 's/##SERVICE_NAMESPACE##/'$SERVICE_NAMESPACE'/g' k8s/service_account_role.yaml
+    - sed -i -e 's/##ENVIRONMENT##/'$ENVIRONMENT'/g' k8s/service_account_role.yaml
+    - sed -i -e 's/##SERVICE_ACCOUNT##/'$SERVICE_ACCOUNT'/g' k8s/service_account_role.yaml
+
     - sed -i -e 's/##SERVICE_NAME##/'$SERVICE_NAME'/g' k8s/deployment.yaml
     - sed -i -e 's/##LOCATION##/'$LOCATION'/g' k8s/deployment.yaml
     - sed -i -e 's/##INSTANCE_REPLICAS##/'$INSTANCE_REPLICAS'/g' k8s/deployment.yaml
@@ -61,6 +66,7 @@ variables:
     - sed -i -e 's/##MEMORY_LIMIT##/'$MEMORY_LIMIT'/g' k8s/deployment.yaml
     - sed -i -e 's/##CPU_LIMIT##/'$CPU_LIMIT'/g' k8s/deployment.yaml
     - sed -i -e 's/##HEALTH_CHECK_TIMEOUT##/'$HEALTH_CHECK_TIMEOUT'/g' k8s/deployment.yaml
+    - sed -i -e 's/##SERVICE_ACCOUNT##/'$SERVICE_ACCOUNT'/g' k8s/deployment.yaml
     
     - sed -i -e 's/##SERVICE_NAME##/'$SERVICE_NAME'/g' k8s/service.yaml
     - sed -i -e 's/##SERVICE_NAMESPACE##/'$SERVICE_NAMESPACE'/g' k8s/service.yaml
@@ -82,6 +88,7 @@ variables:
     - az login --service-principal -u $SERVICE_USER -p $SERVICE_USER_PWD --tenant $TENANT_ID
     - az aks get-credentials -n $CLUSTER_NAME -g tg-$ENVIRONMENT
     - kubectl apply -f k8s/namespace.yaml
+    - kubectl apply -f k8s/service_account_role.yaml
     - kubectl apply -f k8s/deployment.yaml
     - kubectl apply -f k8s/service.yaml
     - kubectl apply -f k8s/autoscale.yaml
