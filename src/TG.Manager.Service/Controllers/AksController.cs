@@ -12,7 +12,7 @@ using TG.Manager.Service.Models.Response;
 namespace TG.Manager.Service.Controllers
 {
     /// <summary>
-    /// Controller is for test purposes and will be removed.  
+    /// TODO: Controller is for test purposes and will be removed.  
     /// </summary>
     [ApiVersion("1.0")]
     [Route(ServiceConst.RoutePrefix)]
