@@ -25,7 +25,7 @@ namespace TG.Manager.Service.Application.Commands
         public async Task<OperationResult> Handle(SetupRealtimeServerInstanceCommand request, CancellationToken cancellationToken)
         {
             
-            var deployment = Yaml.LoadAllFromString(await _realtimeServerDeploymentConfigProvider.GetDeploymentYamlAsync());
+            var deployment = Yaml.LoadAllFromString(await _realtimeServerDeploymentConfigProvider.GetDeploymentYamlAsync(TODO));
             var res = await _kubernetes.CreateNamespacedDeploymentWithHttpMessagesAsync(deployment[0] as V1Deployment,
                 K8sNamespaces.Tg, cancellationToken: cancellationToken);
             

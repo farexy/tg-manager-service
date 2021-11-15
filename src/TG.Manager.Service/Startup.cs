@@ -9,7 +9,9 @@ using TG.Core.App.Configuration;
 using TG.Core.App.InternalCalls;
 using TG.Core.App.Middlewares;
 using TG.Core.App.Swagger;
+using TG.Core.Db.Postgres;
 using TG.Manager.Service.Config;
+using TG.Manager.Service.Db;
 using TG.Manager.Service.Extensions;
 using TG.Manager.Service.ServiceClients;
 using TG.Manager.Service.Services;
@@ -38,6 +40,8 @@ namespace TG.Manager.Service
             //.AddNpgSqlHealthCheck();
             //services.AddKubernetesTgApplicationInsights(Configuration);
             services.AddApiVersioning();
+            
+            services.AddPostgresDb<ApplicationDbContext>(Configuration, ServiceConst.ServiceName);
 
             services.AddAutoMapper<Startup>();
             services.AddMediatR(typeof(Startup));

@@ -4,7 +4,7 @@ namespace TG.Manager.Service.Services
 {
     public interface  IRealtimeServerDeploymentConfigProvider
     {
-        Task<string?> GetDeploymentYamlAsync();
+        Task<string> GetDeploymentYamlAsync(int port);
         void ResetCache();
     }
 }
