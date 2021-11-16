@@ -6,6 +6,7 @@ namespace TG.Manager.Service.Config
         public const string ProjectName = "TG.Manager.Service";
 
         public const string RoutePrefix = ServiceName + "/v{version:apiVersion}/[controller]";
+        public const string BattleServerRoutePrefix = ServiceName + "/bs/v{version:apiVersion}/[controller]";
         public const string InternalRoutePrefix = "internal/" + ServiceName + "/v{version:apiVersion}/[controller]";
     }
 }
