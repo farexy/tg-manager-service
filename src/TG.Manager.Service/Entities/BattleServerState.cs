@@ -6,6 +6,6 @@ namespace TG.Manager.Service.Entities
         Waiting = 1,
         StartingBattle = 2,
         Playing = 3,
-        Terminating = 4,
+        BattleEnded = 4,
     }
 }

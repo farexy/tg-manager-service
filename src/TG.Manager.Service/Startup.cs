@@ -11,6 +11,7 @@ using TG.Core.App.Middlewares;
 using TG.Core.App.Swagger;
 using TG.Core.Db.Postgres;
 using TG.Manager.Service.Config;
+using TG.Manager.Service.Config.Options;
 using TG.Manager.Service.Db;
 using TG.Manager.Service.Extensions;
 using TG.Manager.Service.ServiceClients;
@@ -47,6 +48,8 @@ namespace TG.Manager.Service
             services.AddMediatR(typeof(Startup));
                 
             services.AddTgServices();
+
+            services.Configure<PortsRange>(Configuration.GetSection(nameof(PortsRange)));
 
             services.ConfigureInternalCalls(Configuration);
             services.AddServiceClient<IConfigsClient>(Configuration.GetConfigsUrl());

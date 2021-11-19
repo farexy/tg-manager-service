@@ -8,6 +8,12 @@ namespace TG.Manager.Service.Entities
         
         public BattleServerState State { get; set; }
         
-        public Guid? CurrentBattleId { get; set; }
+        public Guid? BattleId { get; set; }
+
+        public string DeploymentName { get; set; } = default!;
+
+        public string SvcName { get; set; } = default!;
+        
+        
     }
 }

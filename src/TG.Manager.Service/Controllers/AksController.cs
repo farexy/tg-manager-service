@@ -1,6 +1,5 @@
-﻿using System.Threading.Tasks;
-using k8s;
-using k8s.Models;
+﻿using System;
+using System.Threading.Tasks;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using TG.Core.App.OperationResults;
@@ -28,7 +27,7 @@ namespace TG.Manager.Service.Controllers
         [HttpGet]
         public async Task<ActionResult> SetupServer()
         {
-            var command = new SetupRealtimeServerInstanceCommand();
+            var command = new SetupRealtimeServerInstanceCommand(Guid.NewGuid());
             var result = await _mediator.Send(command);
             return result.ToActionResult()
                 .NoContent();
