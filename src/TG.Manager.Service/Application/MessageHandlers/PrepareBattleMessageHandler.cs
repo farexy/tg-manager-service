@@ -4,6 +4,7 @@ using k8s;
 using k8s.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using TG.Core.App.Services;
 using TG.Core.ServiceBus;
 using TG.Manager.Service.Config;
 using TG.Manager.Service.Config.Options;
@@ -19,13 +20,15 @@ namespace TG.Manager.Service.Application.MessageHandlers
         private readonly IKubernetes _kubernetes;
         private readonly IRealtimeServerDeploymentConfigProvider _realtimeServerDeploymentConfigProvider;
         private readonly PortsRange _portsRange;
+        private readonly IDateTimeProvider _dateTimeProvider;
 
-        public PrepareBattleMessageHandler(ApplicationDbContext dbContext, IKubernetes kubernetes,
-            IRealtimeServerDeploymentConfigProvider realtimeServerDeploymentConfigProvider, IOptions<PortsRange> portsRange)
+        public PrepareBattleMessageHandler(ApplicationDbContext dbContext, IKubernetes kubernetes, IOptions<PortsRange> portsRange,
+            IRealtimeServerDeploymentConfigProvider realtimeServerDeploymentConfigProvider, IDateTimeProvider dateTimeProvider)
         {
             _dbContext = dbContext;
             _kubernetes = kubernetes;
             _realtimeServerDeploymentConfigProvider = realtimeServerDeploymentConfigProvider;
+            _dateTimeProvider = dateTimeProvider;
             _portsRange = portsRange.Value;
         }
 
@@ -48,6 +51,8 @@ namespace TG.Manager.Service.Application.MessageHandlers
                 State = BattleServerState.Initializing,
                 DeploymentName = deployment.Metadata.Name,
                 SvcName = service.Metadata.Name,
+                InitializationTime = _dateTimeProvider.UtcNow,
+                LastUpdate = _dateTimeProvider.UtcNow,
             };
 
             await _dbContext.BattleServers.AddAsync(battleServer, cancellationToken);

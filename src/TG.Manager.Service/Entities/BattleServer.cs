@@ -14,6 +14,8 @@ namespace TG.Manager.Service.Entities
 
         public string SvcName { get; set; } = default!;
         
+        public DateTime InitializationTime { get; set; }
         
+        public DateTime LastUpdate { get; set; }
     }
 }
