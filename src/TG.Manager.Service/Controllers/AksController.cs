@@ -1,9 +1,7 @@
-﻿using System;
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using TG.Core.App.OperationResults;
-using TG.Manager.Service.Application.Commands;
 using TG.Manager.Service.Application.Queries;
 using TG.Manager.Service.Config;
 using TG.Manager.Service.Models.Response;
@@ -22,15 +20,6 @@ namespace TG.Manager.Service.Controllers
         public AksController(IMediator mediator)
         {
             _mediator = mediator;
-        }
-
-        [HttpGet]
-        public async Task<ActionResult> SetupServer()
-        {
-            var command = new SetupRealtimeServerInstanceCommand(Guid.NewGuid());
-            var result = await _mediator.Send(command);
-            return result.ToActionResult()
-                .NoContent();
         }
         
         [HttpGet("endpoints")]

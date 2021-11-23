@@ -18,7 +18,7 @@ namespace TG.Manager.Service.Services
 
         public async Task<string> GetDeploymentYamlAsync(int port)
         {
-            var content = _cachedDeployment ??= (await _configsClient.GetConfigAsync(ConfigId)).Content
+            var content = _cachedDeployment ??= (await _configsClient.GetConfigContentAsync(ConfigId))
                 ?? throw new ApplicationException("Invalid deployment config");
             return content.Replace(PortPlaceholder, port.ToString());
         }

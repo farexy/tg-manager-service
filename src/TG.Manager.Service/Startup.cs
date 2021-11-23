@@ -42,7 +42,7 @@ namespace TG.Manager.Service
             //services.AddKubernetesTgApplicationInsights(Configuration);
             services.AddApiVersioning();
             
-            services.AddPostgresDb<ApplicationDbContext>(Configuration, ServiceConst.ServiceName);
+            //services.AddPostgresDb<ApplicationDbContext>(Configuration, ServiceConst.ServiceName);
 
             services.AddAutoMapper<Startup>();
             services.AddMediatR(typeof(Startup));
@@ -88,6 +88,7 @@ namespace TG.Manager.Service
             {
                 endpoints.MapControllers();
                 endpoints.MapHealthChecks("/health");
+                endpoints.MapReloadDeploymentConfig();
             });
         }
     }
