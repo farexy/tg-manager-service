@@ -1,3 +1,4 @@
+using System.IO;
 using System.Threading.Tasks;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
@@ -29,6 +30,15 @@ namespace TG.Manager.Service.Controllers
             var result = await _mediator.Send(query);
             return result.ToActionResult()
                 .Ok();
+        }
+        
+        [HttpGet("{name}/logs")]
+        public async Task<ActionResult<Stream>> GetPodLogs([FromRoute] string name)
+        {
+            var query = new GetPodLogsQuery(name);
+            var result = await _mediator.Send(query);
+            return result.ToActionResult()
+                .File();
         }
     }
 }
