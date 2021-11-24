@@ -1,4 +1,5 @@
-﻿using System.Threading;
+﻿using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using k8s;
 using MediatR;
@@ -23,6 +24,13 @@ namespace TG.Manager.Service.Application.Events
 
         public async Task Handle(BattleStateChangedEvent notification, CancellationToken cancellationToken)
         {
+            if (notification.State is BattleServerState.Waiting)
+            {
+                var service = await _kubernetes.ReadNamespacedServiceWithHttpMessagesAsync(
+                    notification.BattleServer.SvcName, K8sNamespaces.Tg, cancellationToken: cancellationToken);
+                notification.BattleServer.LoadBalancerIp = service.Body.Status.LoadBalancer.Ingress.First().Ip;
+                await _dbContext.SaveChangesAsync(cancellationToken);
+            }
             if (notification.State is BattleServerState.BattleEnded)
             {
                 await Task.WhenAll(

@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using TG.Core.App.OperationResults;
+using TG.Core.App.Services;
 using TG.Manager.Service.Application.Events;
 using TG.Manager.Service.Db;
 using TG.Manager.Service.Entities;
@@ -16,18 +17,22 @@ namespace TG.Manager.Service.Application.Commands
     {   
         private readonly ApplicationDbContext _dbContext;
         private readonly IPublisher _publisher;
+        private readonly IDateTimeProvider _dateTimeProvider;
 
-        public UpdateBattleServerStateCommandHandler(ApplicationDbContext dbContext, IPublisher publisher)
+        public UpdateBattleServerStateCommandHandler(ApplicationDbContext dbContext, IPublisher publisher, IDateTimeProvider dateTimeProvider)
         {
             _dbContext = dbContext;
             _publisher = publisher;
+            _dateTimeProvider = dateTimeProvider;
         }
 
         public async Task<OperationResult> Handle(UpdateBattleServerStateCommand request, CancellationToken cancellationToken)
         {
             var battleServer = await _dbContext.BattleServers
                 .FirstOrDefaultAsync(b => b.BattleId == request.BattleId, cancellationToken);
+
             battleServer.State = request.State;
+            battleServer.LastUpdate = _dateTimeProvider.UtcNow;
 
             await _dbContext.SaveChangesAsync(cancellationToken);
 

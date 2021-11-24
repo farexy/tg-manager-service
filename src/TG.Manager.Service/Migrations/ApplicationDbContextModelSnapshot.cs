@@ -21,13 +21,8 @@ namespace TG.Manager.Service.Migrations
 
             modelBuilder.Entity("TG.Manager.Service.Entities.BattleServer", b =>
                 {
-                    b.Property<int>("Port")
+                    b.Property<Guid>("BattleId")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasColumnName("port")
-                        .HasAnnotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn);
-
-                    b.Property<Guid?>("BattleId")
                         .HasColumnType("uuid")
                         .HasColumnName("battle_id");
 
@@ -44,6 +39,14 @@ namespace TG.Manager.Service.Migrations
                         .HasColumnType("timestamp without time zone")
                         .HasColumnName("last_update");
 
+                    b.Property<string>("LoadBalancerIp")
+                        .HasColumnType("text")
+                        .HasColumnName("load_balancer_ip");
+
+                    b.Property<int>("LoadBalancerPort")
+                        .HasColumnType("integer")
+                        .HasColumnName("load_balancer_port");
+
                     b.Property<int>("State")
                         .HasColumnType("integer")
                         .HasColumnName("state");
@@ -53,11 +56,8 @@ namespace TG.Manager.Service.Migrations
                         .HasColumnType("text")
                         .HasColumnName("svc_name");
 
-                    b.HasKey("Port")
+                    b.HasKey("BattleId")
                         .HasName("pk_battle_servers");
-
-                    b.HasIndex("BattleId")
-                        .HasDatabaseName("ix_battle_servers_battle_id");
 
                     b.ToTable("battle_servers");
                 });

@@ -1,3 +1,4 @@
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using k8s;
@@ -6,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using TG.Core.App.Services;
 using TG.Core.ServiceBus;
+using TG.Core.ServiceBus.Messages;
 using TG.Manager.Service.Config;
 using TG.Manager.Service.Config.Options;
 using TG.Manager.Service.Db;
@@ -34,7 +36,16 @@ namespace TG.Manager.Service.Application.MessageHandlers
 
         public async Task HandleMessage(PrepareBattleMessage message, CancellationToken cancellationToken)
         {
-            var port = await _dbContext.BattleServers.MaxAsync(s => s.Port, cancellationToken);
+            int port;
+            try
+            {
+                port = await _dbContext.BattleServers.MaxAsync(s => s.LoadBalancerPort, cancellationToken);
+            }
+            catch (InvalidOperationException)
+            {
+                port = default;
+            }
+
             port = port == default
                 ? _portsRange.Min
                 : port > _portsRange.Max
@@ -43,12 +54,12 @@ namespace TG.Manager.Service.Application.MessageHandlers
             var yaml = Yaml.LoadAllFromString(await _realtimeServerDeploymentConfigProvider.GetDeploymentYamlAsync(port));
             var deployment = (yaml[0] as V1Deployment)!;
             var service = (yaml[1] as V1Service)!;
-            
+    
             var battleServer = new BattleServer
             {
-                Port = port,
                 BattleId = message.BattleId,
                 State = BattleServerState.Initializing,
+                LoadBalancerPort = port,
                 DeploymentName = deployment.Metadata.Name,
                 SvcName = service.Metadata.Name,
                 InitializationTime = _dateTimeProvider.UtcNow,
@@ -59,9 +70,9 @@ namespace TG.Manager.Service.Application.MessageHandlers
 
             await Task.WhenAll(
                 _dbContext.SaveChangesAsync(cancellationToken),
-                _kubernetes.CreateNamespacedDeploymentWithHttpMessagesAsync(deployment,
-                    K8sNamespaces.Tg, cancellationToken: cancellationToken),
                 _kubernetes.CreateNamespacedServiceWithHttpMessagesAsync(service,
+                    K8sNamespaces.Tg, cancellationToken: cancellationToken),
+                _kubernetes.CreateNamespacedDeploymentWithHttpMessagesAsync(deployment,
                     K8sNamespaces.Tg, cancellationToken: cancellationToken)
             );
         }

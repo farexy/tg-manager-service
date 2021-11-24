@@ -1,6 +1,5 @@
 ﻿using System;
 using Microsoft.EntityFrameworkCore.Migrations;
-using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 namespace TG.Manager.Service.Migrations
 {
@@ -12,10 +11,10 @@ namespace TG.Manager.Service.Migrations
                 name: "battle_servers",
                 columns: table => new
                 {
-                    port = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    battle_id = table.Column<Guid>(type: "uuid", nullable: false),
                     state = table.Column<int>(type: "integer", nullable: false),
-                    battle_id = table.Column<Guid>(type: "uuid", nullable: true),
+                    load_balancer_port = table.Column<int>(type: "integer", nullable: false),
+                    load_balancer_ip = table.Column<string>(type: "text", nullable: true),
                     deployment_name = table.Column<string>(type: "text", nullable: false),
                     svc_name = table.Column<string>(type: "text", nullable: false),
                     initialization_time = table.Column<DateTime>(type: "timestamp without time zone", nullable: false),
@@ -23,13 +22,8 @@ namespace TG.Manager.Service.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("pk_battle_servers", x => x.port);
+                    table.PrimaryKey("pk_battle_servers", x => x.battle_id);
                 });
-
-            migrationBuilder.CreateIndex(
-                name: "ix_battle_servers_battle_id",
-                table: "battle_servers",
-                column: "battle_id");
         }
 
         protected override void Down(MigrationBuilder migrationBuilder)

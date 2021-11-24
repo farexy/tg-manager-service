@@ -24,8 +24,8 @@ namespace TG.Manager.Service.Controllers.BattleServer
             _mediator = mediator;
         }
 
-        [HttpPost]
-        public async Task<ActionResult> UpdateState([FromQuery] Guid battleId, [FromBody] BattleServerStateRequest request)
+        [HttpPatch("{battleId}")]
+        public async Task<ActionResult> UpdateState([FromRoute] Guid battleId, [FromBody] BattleServerStateRequest request)
         {
             var result = await _mediator.Send(new UpdateBattleServerStateCommand(battleId, request.State));
             return result.ToActionResult()
