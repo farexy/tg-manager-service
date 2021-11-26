@@ -51,7 +51,8 @@ namespace TG.Manager.Service.Application.MessageHandlers
                 : port > _portsRange.Max
                     ? _portsRange.Min
                     : ++port;
-            var yaml = Yaml.LoadAllFromString(await _realtimeServerDeploymentConfigProvider.GetDeploymentYamlAsync(port));
+            var yaml = Yaml.LoadAllFromString(
+                await _realtimeServerDeploymentConfigProvider.GetDeploymentYamlAsync(port, message.BattleId));
             var deployment = (yaml[0] as V1Deployment)!;
             var service = (yaml[1] as V1Service)!;
     
