@@ -8,6 +8,7 @@ using TG.Core.App.Services;
 using TG.Manager.Service.Application.Events;
 using TG.Manager.Service.Db;
 using TG.Manager.Service.Entities;
+using TG.Manager.Service.Errors;
 using TG.Manager.Service.Helpers;
 
 namespace TG.Manager.Service.Application.Commands
@@ -37,6 +38,10 @@ namespace TG.Manager.Service.Application.Commands
             var battleServer = await _dbContext.BattleServers
                 .FirstOrDefaultAsync(b => b.BattleId == request.BattleId, cancellationToken);
 
+            if (battleServer is null)
+            {
+                return AppErrors.NotFound;
+            }
             battleServer.State = request.State;
             battleServer.LastUpdate = _dateTimeProvider.UtcNow;
 
