@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using TG.Core.App.OperationResults;
 using TG.Core.App.Services;
 using TG.Manager.Service.Application.Events;
+using TG.Manager.Service.Config;
 using TG.Manager.Service.Db;
 using TG.Manager.Service.Entities;
 
@@ -28,6 +29,11 @@ namespace TG.Manager.Service.Application.Commands
 
         public async Task<OperationResult> Handle(UpdateBattleServerStateCommand request, CancellationToken cancellationToken)
         {
+            if (TestBattles.IsTest(request.BattleId))
+            {
+                return OperationResult.Success();
+            }
+            
             var battleServer = await _dbContext.BattleServers
                 .FirstOrDefaultAsync(b => b.BattleId == request.BattleId, cancellationToken);
 

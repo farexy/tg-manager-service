@@ -7,6 +7,7 @@ using TG.Core.App.InternalCalls;
 using TG.Core.App.OperationResults;
 using TG.Manager.Service.Application.Queries;
 using TG.Manager.Service.Config;
+using TG.Manager.Service.Errors;
 using TG.Manager.Service.Models.Response;
 
 namespace TG.Manager.Service.Controllers
@@ -28,6 +29,7 @@ namespace TG.Manager.Service.Controllers
         {
             var result = await _mediator.Send(new GetBattleServerQuery(battleId));
             return result.ToActionResult()
+                .NotFound(AppErrors.NotFound)
                 .Ok();
         }
     }
