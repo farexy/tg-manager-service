@@ -6,9 +6,9 @@ using Microsoft.EntityFrameworkCore;
 using TG.Core.App.OperationResults;
 using TG.Core.App.Services;
 using TG.Manager.Service.Application.Events;
-using TG.Manager.Service.Config;
 using TG.Manager.Service.Db;
 using TG.Manager.Service.Entities;
+using TG.Manager.Service.Helpers;
 
 namespace TG.Manager.Service.Application.Commands
 {

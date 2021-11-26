@@ -45,12 +45,12 @@ namespace TG.Manager.Service.Application.MessageHandlers
             {
                 port = default;
             }
-
+ 
             port = port == default
                 ? _portsRange.Min
                 : port > _portsRange.Max
                     ? _portsRange.Min
-                    : port;
+                    : ++port;
             var yaml = Yaml.LoadAllFromString(await _realtimeServerDeploymentConfigProvider.GetDeploymentYamlAsync(port));
             var deployment = (yaml[0] as V1Deployment)!;
             var service = (yaml[1] as V1Service)!;
