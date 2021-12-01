@@ -1,4 +1,5 @@
-﻿using System.Linq;
+﻿using System;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using k8s;
@@ -31,9 +32,7 @@ namespace TG.Manager.Service.Application.Events
             
             if (notification.State is BattleServerState.Ready)
             {
-                var service = await _kubernetes.ReadNamespacedServiceWithHttpMessagesAsync(
-                    notification.BattleServer.SvcName, K8sNamespaces.Tg, cancellationToken: cancellationToken);
-                notification.BattleServer.LoadBalancerIp = service.Body.Status.LoadBalancer.Ingress.First().Ip;
+                notification.BattleServer.LoadBalancerIp = await TryGetLoadBalancerIpWithRetryAsync(notification.BattleServer.SvcName, 0, cancellationToken);
                 await _dbContext.SaveChangesAsync(cancellationToken);
             }
             if (notification.State is BattleServerState.Ended)
@@ -49,6 +48,27 @@ namespace TG.Manager.Service.Application.Events
                     Reason = BattleEndReason.Finished
                 });
             }
+        }
+
+        private async Task<string?> TryGetLoadBalancerIpWithRetryAsync(string svcName, int retryCount, CancellationToken cancellationToken)
+        {
+            const int failRetry = 5;
+            const int retryMs = 3000;
+            if (retryCount >= failRetry)
+            {
+                throw new ApplicationException("Can not retrieve load balancer ip");
+            }
+            var service = await _kubernetes.ReadNamespacedServiceWithHttpMessagesAsync(
+                svcName, K8sNamespaces.Tg, cancellationToken: cancellationToken);
+
+            var ip = service.Body.Status.LoadBalancer.Ingress?.FirstOrDefault()?.Ip;
+            if (ip is null)
+            {
+                await Task.Delay(retryMs, cancellationToken);
+                return await TryGetLoadBalancerIpWithRetryAsync(svcName, ++retryCount, cancellationToken);
+            }
+
+            return ip;
         }
     }
 }
