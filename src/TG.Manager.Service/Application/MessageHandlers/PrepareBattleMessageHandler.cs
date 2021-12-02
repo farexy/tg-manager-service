@@ -36,21 +36,9 @@ namespace TG.Manager.Service.Application.MessageHandlers
 
         public async Task HandleMessage(PrepareBattleMessage message, CancellationToken cancellationToken)
         {
-            int port;
-            try
-            {
-                port = await _dbContext.BattleServers.MaxAsync(s => s.LoadBalancerPort, cancellationToken);
-            }
-            catch (InvalidOperationException)
-            {
-                port = default;
-            }
- 
-            port = port == default
-                ? _portsRange.Min
-                : port > _portsRange.Max
-                    ? _portsRange.Min
-                    : ++port;
+            var loadBalancer = await _dbContext.LoadBalancers
+                .FirstOrDefaultAsync(lb => lb.State == LoadBalancerState.Active, cancellationToken);
+
             var yaml = Yaml.LoadAllFromString(
                 await _realtimeServerDeploymentConfigProvider.GetDeploymentYamlAsync(port, message.BattleId));
             var deployment = (yaml[0] as V1Deployment)!;
@@ -76,6 +64,19 @@ namespace TG.Manager.Service.Application.MessageHandlers
                 _kubernetes.CreateNamespacedDeploymentWithHttpMessagesAsync(deployment,
                     K8sNamespaces.Tg, cancellationToken: cancellationToken)
             );
+        }
+
+        private async Task<LoadBalancer> InitNewLbAsync(CancellationToken cancellationToken)
+        {
+            int port;
+            try
+            {
+                port = await _dbContext.LoadBalancers.MaxAsync(s => s.Port, cancellationToken);
+            }
+            catch (InvalidOperationException)
+            {
+                port = _portsRange.Min;
+            }
         }
     }
 }
