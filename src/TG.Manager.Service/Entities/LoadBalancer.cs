@@ -1,3 +1,5 @@
+using System;
+
 namespace TG.Manager.Service.Entities
 {
     public class LoadBalancer
@@ -9,5 +11,7 @@ namespace TG.Manager.Service.Entities
         public string? PublicIp { get; set; }
         
         public LoadBalancerState State { get; set; }
+        
+        public DateTime LastUpdate { get; set; }
     }
 }
