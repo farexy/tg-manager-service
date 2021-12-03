@@ -7,7 +7,9 @@ using k8s;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Rest;
 using TG.Core.App.Services;
 using TG.Manager.Service.Config;
 using TG.Manager.Service.Config.Options;
@@ -22,12 +24,15 @@ namespace TG.Manager.Service.Services
         private readonly IServiceProvider _serviceProvider;
         private readonly IDateTimeProvider _dateTimeProvider;
         private readonly IKubernetes _kubernetes;
+        private readonly ILogger<LoadBalancerManager> _logger;
 
-        public LoadBalancerManager(IServiceProvider serviceProvider, IOptions<LbManagerSettings> settings, IDateTimeProvider dateTimeProvider, IKubernetes kubernetes)
+        public LoadBalancerManager(IServiceProvider serviceProvider, IOptions<LbManagerSettings> settings, IDateTimeProvider dateTimeProvider,
+            IKubernetes kubernetes, ILogger<LoadBalancerManager> logger)
         {
             _serviceProvider = serviceProvider;
             _dateTimeProvider = dateTimeProvider;
             _kubernetes = kubernetes;
+            _logger = logger;
             _settings = settings.Value;
         }
 
@@ -37,42 +42,55 @@ namespace TG.Manager.Service.Services
             var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
             while (!stoppingToken.IsCancellationRequested)
             {
-                await Task.Delay(TimeSpan.FromSeconds(_settings.ProcessingTimeoutSec), stoppingToken);
+                try
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(_settings.ProcessingTimeoutSec), stoppingToken);
 
-                var terminatingLbs = await dbContext.LoadBalancers
-                    .Where(lb => lb.State == LoadBalancerState.Terminating)
-                    .ToListAsync(stoppingToken);
-                await Task.WhenAll(
-                    terminatingLbs.Select(async lb =>
-                    {
-                        var serviceState = await _kubernetes.ReadNamespacedServiceWithHttpMessagesAsync(lb.SvcName, K8sNamespaces.Tg, cancellationToken: stoppingToken);
-                        if (serviceState.Response.StatusCode == HttpStatusCode.NotFound)
+                    var terminatingLbs = await dbContext.LoadBalancers
+                        .Where(lb => lb.State == LoadBalancerState.Terminating)
+                        .ToListAsync(stoppingToken);
+                    await Task.WhenAll(
+                        terminatingLbs.Select(async lb =>
                         {
-                            lb.State = LoadBalancerState.Inactive;
-                            lb.PublicIp = null;
+                            try
+                            {
+                                await _kubernetes.ReadNamespacedServiceWithHttpMessagesAsync(lb.SvcName,
+                                    K8sNamespaces.Tg, cancellationToken: stoppingToken);
+                            }
+                            catch (HttpOperationException httpEx) when (httpEx.Response?.StatusCode ==
+                                                                        HttpStatusCode.NotFound)
+                            {
+                                lb.State = LoadBalancerState.Inactive;
+                                lb.PublicIp = null;
+                                lb.LastUpdate = _dateTimeProvider.UtcNow;
+                            }
+                        })
+                    );
+
+                    await dbContext.SaveChangesAsync(stoppingToken);
+
+                    var terminatingTime =
+                        _dateTimeProvider.UtcNow.Subtract(TimeSpan.FromSeconds(_settings.LbTerminatingIntervalSec));
+                    var inactiveLbs = await dbContext.LoadBalancers
+                        .Where(lb => lb.State == LoadBalancerState.Active && lb.LastUpdate <= terminatingTime)
+                        .ToListAsync(stoppingToken);
+
+                    await Task.WhenAll(
+                        inactiveLbs.Select(lb =>
+                        {
+                            lb.State = LoadBalancerState.Terminating;
                             lb.LastUpdate = _dateTimeProvider.UtcNow;
-                        }
-                    })
-                );
+                            return _kubernetes.DeleteNamespacedServiceAsync(lb.SvcName, K8sNamespaces.Tg,
+                                cancellationToken: stoppingToken);
+                        })
+                    );
 
-                await dbContext.SaveChangesAsync(stoppingToken);
-                
-                var terminatingTime =
-                    _dateTimeProvider.UtcNow.Subtract(TimeSpan.FromSeconds(_settings.LbTerminatingIntervalSec));
-                var inactiveLbs = await dbContext.LoadBalancers
-                    .Where(lb => lb.State == LoadBalancerState.Active && lb.LastUpdate <= terminatingTime)
-                    .ToListAsync(stoppingToken);
-
-                await Task.WhenAll(
-                    inactiveLbs.Select(lb =>
-                    {
-                        lb.State = LoadBalancerState.Terminating;
-                        lb.LastUpdate = _dateTimeProvider.UtcNow;
-                        return  _kubernetes.DeleteNamespacedServiceAsync(lb.SvcName, K8sNamespaces.Tg, cancellationToken: stoppingToken);
-                    })
-                );
-                
-                await dbContext.SaveChangesAsync(stoppingToken);
+                    await dbContext.SaveChangesAsync(stoppingToken);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Unexpected exception");
+                }
             }
         }
     }

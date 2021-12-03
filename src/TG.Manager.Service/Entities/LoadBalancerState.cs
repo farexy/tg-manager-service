@@ -6,6 +6,6 @@ namespace TG.Manager.Service.Entities
         Initializing = 1,
         Active = 2,
         Busy = 3,
-        Terminating = 3,
+        Terminating = 4,
     }
 }
