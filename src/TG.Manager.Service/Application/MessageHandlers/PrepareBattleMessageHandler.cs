@@ -39,7 +39,9 @@ namespace TG.Manager.Service.Application.MessageHandlers
         {
             var loadBalancer = await _dbContext.LoadBalancers
                 .OrderByDescending(lb => lb.State)
-                .FirstOrDefaultAsync(lb => lb.State == LoadBalancerState.Active || lb.State == LoadBalancerState.Inactive, cancellationToken);
+                .ThenBy(lb => lb.Port)
+                .FirstOrDefaultAsync(lb =>
+                    lb.State == LoadBalancerState.Active || lb.State == LoadBalancerState.Inactive, cancellationToken);
 
             loadBalancer ??= await InitNewLbAsync(cancellationToken);
 
@@ -59,10 +61,17 @@ namespace TG.Manager.Service.Application.MessageHandlers
             };
             await _dbContext.BattleServers.AddAsync(battleServer, cancellationToken);
 
-            var svcInitialization = loadBalancer.State == LoadBalancerState.Active
-                ? Task.CompletedTask
-                : _kubernetes.CreateNamespacedServiceWithHttpMessagesAsync(service, K8sNamespaces.Tg, cancellationToken: cancellationToken);
-
+            Task svcInitialization;
+            if (loadBalancer.State == LoadBalancerState.Active)
+            {
+                svcInitialization = Task.CompletedTask;
+            }
+            else
+            {
+                svcInitialization = _kubernetes.CreateNamespacedServiceWithHttpMessagesAsync(service, K8sNamespaces.Tg,
+                    cancellationToken: cancellationToken);
+                loadBalancer.State = LoadBalancerState.Initializing;
+            }
             loadBalancer.SvcName = service.Metadata.Name;
             loadBalancer.LastUpdate = _dateTimeProvider.UtcNow;
 
