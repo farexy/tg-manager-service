@@ -44,13 +44,26 @@ namespace TG.Manager.Service.Services
             {
                 try
                 {
+                    var terminatingTime =
+                        _dateTimeProvider.UtcNow.Subtract(TimeSpan.FromSeconds(_settings.LbTerminatingIntervalSec));
+                    var inactiveLbs = await dbContext.LoadBalancers
+                        .Where(lb => lb.State == LoadBalancerState.Active && lb.LastUpdate <= terminatingTime)
+                        .ToListAsync(stoppingToken);
+
+                    inactiveLbs.ForEach(lb =>
+                    {
+                        lb.State = LoadBalancerState.Terminating;
+                        lb.LastUpdate = _dateTimeProvider.UtcNow;
+                    });
+                    await dbContext.SaveChangesAsync(stoppingToken);
+                    
                     await Task.Delay(TimeSpan.FromSeconds(_settings.ProcessingTimeoutSec), stoppingToken);
 
-                    var terminatingLbs = await dbContext.LoadBalancers
-                        .Where(lb => lb.State == LoadBalancerState.Terminating)
+                    var disposingLbs = await dbContext.LoadBalancers
+                        .Where(lb => lb.State == LoadBalancerState.Disposing)
                         .ToListAsync(stoppingToken);
                     await Task.WhenAll(
-                        terminatingLbs.Select(async lb =>
+                        disposingLbs.Select(async lb =>
                         {
                             try
                             {
@@ -69,16 +82,13 @@ namespace TG.Manager.Service.Services
 
                     await dbContext.SaveChangesAsync(stoppingToken);
 
-                    var terminatingTime =
-                        _dateTimeProvider.UtcNow.Subtract(TimeSpan.FromSeconds(_settings.LbTerminatingIntervalSec));
-                    var inactiveLbs = await dbContext.LoadBalancers
-                        .Where(lb => lb.State == LoadBalancerState.Active && lb.LastUpdate <= terminatingTime)
+                    var terminatingLbs = await dbContext.LoadBalancers
+                        .Where(lb => lb.State == LoadBalancerState.Terminating)
                         .ToListAsync(stoppingToken);
-
                     await Task.WhenAll(
-                        inactiveLbs.Select(lb =>
+                        terminatingLbs.Select(lb =>
                         {
-                            lb.State = LoadBalancerState.Terminating;
+                            lb.State = LoadBalancerState.Disposing;
                             lb.LastUpdate = _dateTimeProvider.UtcNow;
                             return _kubernetes.DeleteNamespacedServiceAsync(lb.SvcName, K8sNamespaces.Tg,
                                 cancellationToken: stoppingToken);

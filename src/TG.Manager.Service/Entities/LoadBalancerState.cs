@@ -7,5 +7,6 @@ namespace TG.Manager.Service.Entities
         Active = 2,
         Busy = 3,
         Terminating = 4,
+        Disposing = 5,
     }
 }

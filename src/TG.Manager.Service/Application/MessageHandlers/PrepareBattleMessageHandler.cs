@@ -65,6 +65,8 @@ namespace TG.Manager.Service.Application.MessageHandlers
             if (loadBalancer.State == LoadBalancerState.Active)
             {
                 svcInitialization = Task.CompletedTask;
+                // not to conflict state with LbManager
+                _dbContext.Entry(loadBalancer).Property(lb => lb.State).IsModified = true;
             }
             else
             {
@@ -89,6 +91,7 @@ namespace TG.Manager.Service.Application.MessageHandlers
             try
             {
                 port = await _dbContext.LoadBalancers.MaxAsync(s => s.Port, cancellationToken);
+                port++;
             }
             catch (InvalidOperationException)
             {
