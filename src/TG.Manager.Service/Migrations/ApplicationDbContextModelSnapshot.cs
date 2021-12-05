@@ -39,13 +39,39 @@ namespace TG.Manager.Service.Migrations
                         .HasColumnType("timestamp without time zone")
                         .HasColumnName("last_update");
 
-                    b.Property<string>("LoadBalancerIp")
-                        .HasColumnType("text")
-                        .HasColumnName("load_balancer_ip");
-
                     b.Property<int>("LoadBalancerPort")
                         .HasColumnType("integer")
                         .HasColumnName("load_balancer_port");
+
+                    b.Property<int>("State")
+                        .HasColumnType("integer")
+                        .HasColumnName("state");
+
+                    b.HasKey("BattleId")
+                        .HasName("pk_battle_servers");
+
+                    b.HasIndex("LoadBalancerPort")
+                        .IsUnique()
+                        .HasDatabaseName("ix_battle_servers_load_balancer_port");
+
+                    b.ToTable("battle_servers");
+                });
+
+            modelBuilder.Entity("TG.Manager.Service.Entities.LoadBalancer", b =>
+                {
+                    b.Property<int>("Port")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("port")
+                        .HasAnnotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn);
+
+                    b.Property<DateTime>("LastUpdate")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("last_update");
+
+                    b.Property<string>("PublicIp")
+                        .HasColumnType("text")
+                        .HasColumnName("public_ip");
 
                     b.Property<int>("State")
                         .HasColumnType("integer")
@@ -56,10 +82,22 @@ namespace TG.Manager.Service.Migrations
                         .HasColumnType("text")
                         .HasColumnName("svc_name");
 
-                    b.HasKey("BattleId")
-                        .HasName("pk_battle_servers");
+                    b.HasKey("Port")
+                        .HasName("pk_load_balancers");
 
-                    b.ToTable("battle_servers");
+                    b.ToTable("load_balancers");
+                });
+
+            modelBuilder.Entity("TG.Manager.Service.Entities.BattleServer", b =>
+                {
+                    b.HasOne("TG.Manager.Service.Entities.LoadBalancer", "LoadBalancer")
+                        .WithOne()
+                        .HasForeignKey("TG.Manager.Service.Entities.BattleServer", "LoadBalancerPort")
+                        .HasConstraintName("fk_battle_servers_load_balancers_load_balancer_port")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("LoadBalancer");
                 });
 #pragma warning restore 612, 618
         }

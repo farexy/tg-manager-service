@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using k8s;
@@ -36,23 +37,16 @@ namespace TG.Manager.Service.Application.MessageHandlers
 
         public async Task HandleMessage(PrepareBattleMessage message, CancellationToken cancellationToken)
         {
-            int port;
-            try
-            {
-                port = await _dbContext.BattleServers.MaxAsync(s => s.LoadBalancerPort, cancellationToken);
-            }
-            catch (InvalidOperationException)
-            {
-                port = default;
-            }
- 
-            port = port == default
-                ? _portsRange.Min
-                : port > _portsRange.Max
-                    ? _portsRange.Min
-                    : ++port;
+            var loadBalancer = await _dbContext.LoadBalancers
+                .OrderByDescending(lb => lb.State)
+                .ThenBy(lb => lb.Port)
+                .FirstOrDefaultAsync(lb =>
+                    lb.State == LoadBalancerState.Active || lb.State == LoadBalancerState.Inactive, cancellationToken);
+
+            loadBalancer ??= await InitNewLbAsync(cancellationToken);
+
             var yaml = Yaml.LoadAllFromString(
-                await _realtimeServerDeploymentConfigProvider.GetDeploymentYamlAsync(port, message.BattleId));
+                await _realtimeServerDeploymentConfigProvider.GetDeploymentYamlAsync(loadBalancer.Port, message.BattleId));
             var deployment = (yaml[0] as V1Deployment)!;
             var service = (yaml[1] as V1Service)!;
     
@@ -60,22 +54,58 @@ namespace TG.Manager.Service.Application.MessageHandlers
             {
                 BattleId = message.BattleId,
                 State = BattleServerState.Initializing,
-                LoadBalancerPort = port,
+                LoadBalancer = loadBalancer,
                 DeploymentName = deployment.Metadata.Name,
-                SvcName = service.Metadata.Name,
                 InitializationTime = _dateTimeProvider.UtcNow,
                 LastUpdate = _dateTimeProvider.UtcNow,
             };
-
             await _dbContext.BattleServers.AddAsync(battleServer, cancellationToken);
+
+            Task svcInitialization;
+            if (loadBalancer.State == LoadBalancerState.Active)
+            {
+                svcInitialization = Task.CompletedTask;
+                // not to conflict state with LbManager
+                _dbContext.Entry(loadBalancer).Property(lb => lb.State).IsModified = true;
+            }
+            else
+            {
+                svcInitialization = _kubernetes.CreateNamespacedServiceWithHttpMessagesAsync(service, K8sNamespaces.Tg,
+                    cancellationToken: cancellationToken);
+                loadBalancer.State = LoadBalancerState.Initializing;
+            }
+            loadBalancer.SvcName = service.Metadata.Name;
+            loadBalancer.LastUpdate = _dateTimeProvider.UtcNow;
 
             await Task.WhenAll(
                 _dbContext.SaveChangesAsync(cancellationToken),
-                _kubernetes.CreateNamespacedServiceWithHttpMessagesAsync(service,
-                    K8sNamespaces.Tg, cancellationToken: cancellationToken),
                 _kubernetes.CreateNamespacedDeploymentWithHttpMessagesAsync(deployment,
-                    K8sNamespaces.Tg, cancellationToken: cancellationToken)
+                    K8sNamespaces.Tg, cancellationToken: cancellationToken),
+                svcInitialization
             );
+        }
+
+        private async Task<LoadBalancer> InitNewLbAsync(CancellationToken cancellationToken)
+        {
+            int port;
+            try
+            {
+                port = await _dbContext.LoadBalancers.MaxAsync(s => s.Port, cancellationToken);
+                port++;
+            }
+            catch (InvalidOperationException)
+            {
+                port = _portsRange.Min;
+            }
+
+            var lb = new LoadBalancer
+            {
+                Port = port,
+                State = LoadBalancerState.Initializing,
+            };
+
+            await _dbContext.AddAsync(lb, cancellationToken);
+            return lb;
         }
     }
 }

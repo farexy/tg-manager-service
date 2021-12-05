@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using k8s;
 using MediatR;
+using TG.Core.App.Services;
 using TG.Core.ServiceBus;
 using TG.Core.ServiceBus.Messages;
 using TG.Manager.Service.Config;
@@ -19,27 +20,33 @@ namespace TG.Manager.Service.Application.Events
         private readonly ApplicationDbContext _dbContext;
         private readonly IKubernetes _kubernetes;
         private readonly IQueueProducer<BattleEndedMessage> _queueProducer;
+        private readonly IDateTimeProvider _dateTimeProvider;
 
-        public BattleStateChangedEventHandler(ApplicationDbContext dbContext, IKubernetes kubernetes, IQueueProducer<BattleEndedMessage> queueProducer)
+        public BattleStateChangedEventHandler(ApplicationDbContext dbContext, IKubernetes kubernetes,
+            IQueueProducer<BattleEndedMessage> queueProducer, IDateTimeProvider dateTimeProvider)
         {
             _dbContext = dbContext;
             _kubernetes = kubernetes;
             _queueProducer = queueProducer;
+            _dateTimeProvider = dateTimeProvider;
         }
 
         public async Task Handle(BattleStateChangedEvent notification, CancellationToken cancellationToken)
         {
-            
+            var lb = notification.BattleServer.LoadBalancer!;
             if (notification.State is BattleServerState.Ready)
             {
-                notification.BattleServer.LoadBalancerIp = await TryGetLoadBalancerIpWithRetryAsync(notification.BattleServer.SvcName, 0, cancellationToken);
+                lb.PublicIp = await TryGetLoadBalancerIpWithRetryAsync(lb.SvcName, 0, cancellationToken);
+                lb.State = LoadBalancerState.Busy;
+                lb.LastUpdate = _dateTimeProvider.UtcNow;
                 await _dbContext.SaveChangesAsync(cancellationToken);
             }
             if (notification.State is BattleServerState.Ended)
             {
-                await Task.WhenAll(
-                    _kubernetes.DeleteNamespacedDeploymentAsync(notification.BattleServer.DeploymentName, K8sNamespaces.Tg, cancellationToken: cancellationToken),
-                    _kubernetes.DeleteNamespacedServiceAsync(notification.BattleServer.SvcName, K8sNamespaces.Tg, cancellationToken: cancellationToken));
+                await _kubernetes.DeleteNamespacedDeploymentAsync(notification.BattleServer.DeploymentName, K8sNamespaces.Tg, cancellationToken: cancellationToken);
+
+                lb.State = LoadBalancerState.Active;
+                lb.LastUpdate = _dateTimeProvider.UtcNow;
                 _dbContext.BattleServers.Remove(notification.BattleServer);
                 await _dbContext.SaveChangesAsync(cancellationToken);
                 await _queueProducer.SendMessageAsync(new BattleEndedMessage
