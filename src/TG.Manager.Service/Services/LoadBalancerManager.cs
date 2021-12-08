@@ -70,8 +70,7 @@ namespace TG.Manager.Service.Services
                                 await _kubernetes.ReadNamespacedServiceWithHttpMessagesAsync(lb.SvcName,
                                     K8sNamespaces.Tg, cancellationToken: stoppingToken);
                             }
-                            catch (HttpOperationException httpEx) when (httpEx.Response?.StatusCode ==
-                                                                        HttpStatusCode.NotFound)
+                            catch (HttpOperationException httpEx) when (httpEx.Response?.StatusCode == HttpStatusCode.NotFound)
                             {
                                 lb.State = LoadBalancerState.Inactive;
                                 lb.PublicIp = null;
