@@ -24,24 +24,22 @@ namespace TG.Manager.Service.Application.MessageHandlers
         private readonly IRealtimeServerDeploymentConfigProvider _realtimeServerDeploymentConfigProvider;
         private readonly PortsRange _portsRange;
         private readonly IDateTimeProvider _dateTimeProvider;
+        private readonly ITestBattlesHelper _testBattlesHelper;
 
         public PrepareBattleMessageHandler(ApplicationDbContext dbContext, IKubernetes kubernetes, IOptions<PortsRange> portsRange,
-            IRealtimeServerDeploymentConfigProvider realtimeServerDeploymentConfigProvider, IDateTimeProvider dateTimeProvider)
+            IRealtimeServerDeploymentConfigProvider realtimeServerDeploymentConfigProvider, IDateTimeProvider dateTimeProvider, ITestBattlesHelper testBattlesHelper)
         {
             _dbContext = dbContext;
             _kubernetes = kubernetes;
             _realtimeServerDeploymentConfigProvider = realtimeServerDeploymentConfigProvider;
             _dateTimeProvider = dateTimeProvider;
+            _testBattlesHelper = testBattlesHelper;
             _portsRange = portsRange.Value;
         }
 
         public async Task HandleMessage(PrepareBattleMessage message, CancellationToken cancellationToken)
         {
-            var loadBalancer = await _dbContext.LoadBalancers
-                .OrderByDescending(lb => lb.State)
-                .ThenBy(lb => lb.Port)
-                .FirstOrDefaultAsync(lb =>
-                    lb.State == LoadBalancerState.Active || lb.State == LoadBalancerState.Inactive, cancellationToken);
+            var loadBalancer = await GetActualLbAsync(message.BattleId, cancellationToken);
 
             loadBalancer ??= await InitNewLbAsync(cancellationToken);
 
@@ -70,19 +68,51 @@ namespace TG.Manager.Service.Application.MessageHandlers
             }
             else
             {
-                svcInitialization = _kubernetes.CreateNamespacedServiceWithHttpMessagesAsync(service, K8sNamespaces.Tg,
-                    cancellationToken: cancellationToken);
+                svcInitialization = _testBattlesHelper.IsTestServer(message.BattleId)
+                        ? Task.CompletedTask 
+                        : _kubernetes.CreateNamespacedServiceWithHttpMessagesAsync(service, K8sNamespaces.Tg, cancellationToken: cancellationToken);
                 loadBalancer.State = LoadBalancerState.Initializing;
             }
-            loadBalancer.SvcName = service.Metadata.Name;
+            loadBalancer.SvcName = _testBattlesHelper.IsTestServer(message.BattleId)
+                ? _testBattlesHelper.GetSvcName(message.BattleId)
+                : service.Metadata.Name;
             loadBalancer.LastUpdate = _dateTimeProvider.UtcNow;
 
+            var deploymentInitialization = _testBattlesHelper.IsTestServer(message.BattleId)
+                ? Task.CompletedTask
+                : _kubernetes.CreateNamespacedDeploymentWithHttpMessagesAsync(deployment, K8sNamespaces.Tg, cancellationToken: cancellationToken);
+            
             await Task.WhenAll(
                 _dbContext.SaveChangesAsync(cancellationToken),
-                _kubernetes.CreateNamespacedDeploymentWithHttpMessagesAsync(deployment,
-                    K8sNamespaces.Tg, cancellationToken: cancellationToken),
+                deploymentInitialization,
                 svcInitialization
             );
+        }
+
+        private async Task<LoadBalancer?> GetActualLbAsync(Guid battleId, CancellationToken cancellationToken)
+        {
+            if (_testBattlesHelper.IsTestServer(battleId))
+            {
+                var testLb = await _dbContext.LoadBalancers.FindAsync(_testBattlesHelper.GetPort(battleId));
+                if (testLb is null)
+                {
+                    testLb = new LoadBalancer
+                    {
+                        Port = _testBattlesHelper.GetPort(battleId),
+                        State = LoadBalancerState.Initializing,
+                    };
+                    await _dbContext.AddAsync(testLb, cancellationToken);
+                    await _dbContext.SaveChangesAsync(cancellationToken);
+                }
+
+                return testLb;
+            }
+
+            return await _dbContext.LoadBalancers
+                .OrderByDescending(lb => lb.State)
+                .ThenBy(lb => lb.Port)
+                .FirstOrDefaultAsync(lb =>
+                    lb.State == LoadBalancerState.Active || lb.State == LoadBalancerState.Inactive, cancellationToken);
         }
 
         private async Task<LoadBalancer> InitNewLbAsync(CancellationToken cancellationToken)

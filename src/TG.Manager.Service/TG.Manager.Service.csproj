@@ -7,7 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="KubernetesClient" Version="6.0.25" />
+    <PackageReference Include="KubernetesClient" Version="6.0.26" />
     <PackageReference Include="MediatR" Version="9.0.0" />
     <PackageReference Include="MediatR.Extensions.Microsoft.DependencyInjection" Version="9.0.0" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Versioning" Version="5.0.0" />
@@ -15,8 +15,8 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="TG.Core.App" Version="1.0.22" />
-    <PackageReference Include="TG.Core.Db.Postgres" Version="1.0.3" />
+    <PackageReference Include="TG.Core.App" Version="1.0.23" />
+    <PackageReference Include="TG.Core.Db.Postgres" Version="1.0.5" />
     <PackageReference Include="TG.Core.ServiceBus" Version="1.0.11" />
   </ItemGroup>
 

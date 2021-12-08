@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
@@ -11,12 +13,10 @@ namespace TG.Manager.Service.Extensions
     {
         public static IEndpointConventionBuilder MapReloadDeploymentConfig(this IEndpointRouteBuilder endpoints)
         {
-            return endpoints.MapTgConfigs(ServiceConst.ServiceName, configId =>
+            return endpoints.MapTgConfigs(ServiceConst.ServiceName, new Dictionary<string,Action<string>>
             {
-                if (configId == TgConfigs.RealtimeServerDeployment)
-                {
-                    endpoints.ServiceProvider.GetRequiredService<IRealtimeServerDeploymentConfigProvider>().ResetCache();
-                }
+                [TgConfigs.RealtimeServerDeployment] = _ => 
+                        endpoints.ServiceProvider.GetRequiredService<IRealtimeServerDeploymentConfigProvider>().ResetCache()
             });
         }
     }

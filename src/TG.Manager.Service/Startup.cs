@@ -17,7 +17,6 @@ using TG.Manager.Service.Config;
 using TG.Manager.Service.Config.Options;
 using TG.Manager.Service.Db;
 using TG.Manager.Service.Extensions;
-using TG.Manager.Service.Helpers;
 using TG.Manager.Service.ServiceClients;
 using TG.Manager.Service.Services;
 
@@ -70,6 +69,7 @@ namespace TG.Manager.Service
                 .AddQueueProducer<BattleEndedMessage>()
                 .AddQueueConsumer<PrepareBattleMessage, PrepareBattleMessageHandler>();
 
+            services.AddTransient<ITestBattlesHelper, TestBattlesHelper>();
             services.AddSingleton<IRealtimeServerDeploymentConfigProvider, RealtimeServerDeploymentConfigProvider>();
 
             services.AddSingleton<IKubernetes>(new Kubernetes(Environment.GetK8sConfig()));
@@ -80,7 +80,6 @@ namespace TG.Manager.Service
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
         {
-            TestBattles.Init(env);
             if (env.IsDevelopment())
             {
                 app.UseDeveloperExceptionPage();

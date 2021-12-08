@@ -25,14 +25,16 @@ namespace TG.Manager.Service.Services
         private readonly IDateTimeProvider _dateTimeProvider;
         private readonly IKubernetes _kubernetes;
         private readonly ILogger<LoadBalancerManager> _logger;
+        private readonly ITestBattlesHelper _testBattlesHelper;
 
         public LoadBalancerManager(IServiceProvider serviceProvider, IOptions<LbManagerSettings> settings, IDateTimeProvider dateTimeProvider,
-            IKubernetes kubernetes, ILogger<LoadBalancerManager> logger)
+            IKubernetes kubernetes, ILogger<LoadBalancerManager> logger, ITestBattlesHelper testBattlesHelper)
         {
             _serviceProvider = serviceProvider;
             _dateTimeProvider = dateTimeProvider;
             _kubernetes = kubernetes;
             _logger = logger;
+            _testBattlesHelper = testBattlesHelper;
             _settings = settings.Value;
         }
 
@@ -65,6 +67,13 @@ namespace TG.Manager.Service.Services
                     await Task.WhenAll(
                         disposingLbs.Select(async lb =>
                         {
+                            if (_testBattlesHelper.IsTestLb(lb.SvcName))
+                            {
+                                lb.State = LoadBalancerState.Inactive;
+                                lb.PublicIp = null;
+                                lb.LastUpdate = _dateTimeProvider.UtcNow;
+                                return;
+                            }
                             try
                             {
                                 await _kubernetes.ReadNamespacedServiceWithHttpMessagesAsync(lb.SvcName,
@@ -89,8 +98,9 @@ namespace TG.Manager.Service.Services
                         {
                             lb.State = LoadBalancerState.Disposing;
                             lb.LastUpdate = _dateTimeProvider.UtcNow;
-                            return _kubernetes.DeleteNamespacedServiceAsync(lb.SvcName, K8sNamespaces.Tg,
-                                cancellationToken: stoppingToken);
+                            return _testBattlesHelper.IsTestLb(lb.SvcName)
+                                ? Task.CompletedTask
+                                : _kubernetes.DeleteNamespacedServiceAsync(lb.SvcName, K8sNamespaces.Tg, cancellationToken: stoppingToken);
                         })
                     );
 

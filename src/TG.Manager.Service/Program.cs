@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Hosting;
 using TG.Core.App.Configuration;
+using TG.Core.App.Configuration.TgConfig;
+using TG.Manager.Service.Config;
 
 namespace TG.Manager.Service
 {
@@ -14,7 +16,10 @@ namespace TG.Manager.Service
         private static IHostBuilder CreateHostBuilder(string[] args) =>
             Host.CreateDefaultBuilder(args)
                 .ConfigureTgKeyVault()
-                //.ConfigureTgLogging(ServiceConst.ServiceName)
+                .ConfigureAppConfiguration((ctx, configuration) =>
+                {
+                    configuration.AddTgConfigs(TgConfigs.BattleSettings);
+                })                //.ConfigureTgLogging(ServiceConst.ServiceName)
                 .ConfigureWebHostDefaults(webBuilder =>
                 {
                     webBuilder.UseStartup<Startup>();

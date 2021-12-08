@@ -9,7 +9,6 @@ using TG.Manager.Service.Application.Events;
 using TG.Manager.Service.Db;
 using TG.Manager.Service.Entities;
 using TG.Manager.Service.Errors;
-using TG.Manager.Service.Helpers;
 
 namespace TG.Manager.Service.Application.Commands
 {
@@ -30,11 +29,6 @@ namespace TG.Manager.Service.Application.Commands
 
         public async Task<OperationResult> Handle(UpdateBattleServerStateCommand request, CancellationToken cancellationToken)
         {
-            if (TestBattles.IsTest(request.BattleId))
-            {
-                return OperationResult.Success();
-            }
-            
             var battleServer = await _dbContext.BattleServers
                 .Include(bs => bs.LoadBalancer)
                 .FirstOrDefaultAsync(b => b.BattleId == request.BattleId, cancellationToken);
