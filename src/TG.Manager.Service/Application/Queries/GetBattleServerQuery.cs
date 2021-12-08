@@ -3,6 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using AutoMapper;
 using MediatR;
+using Microsoft.EntityFrameworkCore;
 using TG.Core.App.OperationResults;
 using TG.Manager.Service.Db;
 using TG.Manager.Service.Errors;
@@ -25,7 +26,9 @@ namespace TG.Manager.Service.Application.Queries
 
         public async Task<OperationResult<BattleServerResponse>> Handle(GetBattleServerQuery request, CancellationToken cancellationToken)
         {
-            var battleServer = await _dbContext.BattleServers.FindAsync(request.BattleId);
+            var battleServer = await _dbContext.BattleServers
+                .Include(bs => bs.LoadBalancer)
+                .FirstOrDefaultAsync(bs => bs.BattleId == request.BattleId, cancellationToken);
             if (battleServer is null)
             {
                 return AppErrors.NotFound;
