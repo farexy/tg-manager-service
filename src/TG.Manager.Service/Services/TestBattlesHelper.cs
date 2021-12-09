@@ -19,31 +19,21 @@ namespace TG.Manager.Service.Services
         
         public bool IsTestServer(Guid battleId)
         {
-            if (_hostEnvironment.IsDevelopmentOrDebug())
+            if (!_hostEnvironment.IsDevelopmentOrDebug())
             {
                 return false;
             }
-            return _battleSettings.TestServers.ContainsKey(battleId);
+            return _battleSettings.TestServers.ContainsKey(battleId.ToString());
         }
 
         public string GetIp(Guid testBattleId)
         {
-            return _battleSettings.TestServers[testBattleId].Ip;
+            return _battleSettings.TestServers[testBattleId.ToString()].Ip;
         }
 
         public int GetPort(Guid testBattleId)
         {
-            return _battleSettings.TestServers[testBattleId].Port;
-        }
-
-        public string GetSvcName(Guid testBattleId)
-        {
-            return _battleSettings.TestServers[testBattleId].Type.ToString();
-        }
-
-        public bool IsTestLb(string svcName)
-        {
-            return nameof(BattleServerType.Static) == svcName || nameof(BattleServerType.Local) == svcName;
+            return _battleSettings.TestServers[testBattleId.ToString()].Port;
         }
     }
 }

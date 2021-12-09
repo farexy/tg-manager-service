@@ -11,6 +11,7 @@ namespace TG.Manager.Service.Config.Mapper
             CreateMap<BattleServer, BattleServerResponse>()
                 .ForMember(dest => dest.LoadBalancerIp, opt =>
                     opt.MapFrom(src => src.LoadBalancer == null ? null : src.LoadBalancer.PublicIp));
+            CreateMap<TestBattleServer, BattleServerResponse>();
         }
     }
 }

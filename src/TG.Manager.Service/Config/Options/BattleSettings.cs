@@ -6,7 +6,7 @@ namespace TG.Manager.Service.Config.Options
     public class BattleSettings
     {
         public Dictionary<string, BattleTypeSettings> BattleTypes { get; set; } = default!;
-        public Dictionary<Guid, TestServerSettings> TestServers { get; set; } = default!;
+        public Dictionary<string, TestServerSettings> TestServers { get; set; } = default!;
     }
     
     public class BattleTypeSettings

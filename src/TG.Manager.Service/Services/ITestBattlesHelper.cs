@@ -7,7 +7,5 @@ namespace TG.Manager.Service.Services
         bool IsTestServer(Guid battleId);
         string GetIp(Guid testBattleId);
         int GetPort(Guid testBattleId);
-        string GetSvcName(Guid testBattleId);
-        bool IsTestLb(string svcName);
     }
 }

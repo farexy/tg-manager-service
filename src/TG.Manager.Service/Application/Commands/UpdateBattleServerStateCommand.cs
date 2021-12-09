@@ -9,6 +9,7 @@ using TG.Manager.Service.Application.Events;
 using TG.Manager.Service.Db;
 using TG.Manager.Service.Entities;
 using TG.Manager.Service.Errors;
+using TG.Manager.Service.Services;
 
 namespace TG.Manager.Service.Application.Commands
 {
@@ -19,16 +20,25 @@ namespace TG.Manager.Service.Application.Commands
         private readonly ApplicationDbContext _dbContext;
         private readonly IPublisher _publisher;
         private readonly IDateTimeProvider _dateTimeProvider;
+        private readonly ITestBattlesHelper _testBattlesHelper;
 
-        public UpdateBattleServerStateCommandHandler(ApplicationDbContext dbContext, IPublisher publisher, IDateTimeProvider dateTimeProvider)
+        public UpdateBattleServerStateCommandHandler(ApplicationDbContext dbContext, IPublisher publisher,
+            IDateTimeProvider dateTimeProvider, ITestBattlesHelper testBattlesHelper)
         {
             _dbContext = dbContext;
             _publisher = publisher;
             _dateTimeProvider = dateTimeProvider;
+            _testBattlesHelper = testBattlesHelper;
         }
 
         public async Task<OperationResult> Handle(UpdateBattleServerStateCommand request, CancellationToken cancellationToken)
         {
+            if (_testBattlesHelper.IsTestServer(request.BattleId))
+            {
+                await _publisher.Publish(new TestBattleStateChangedEvent(request.BattleId, request.State), cancellationToken);
+                return OperationResult.Success();
+            }
+
             var battleServer = await _dbContext.BattleServers
                 .Include(bs => bs.LoadBalancer)
                 .FirstOrDefaultAsync(b => b.BattleId == request.BattleId, cancellationToken);

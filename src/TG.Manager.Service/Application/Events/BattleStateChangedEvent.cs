@@ -10,7 +10,6 @@ using TG.Core.ServiceBus.Messages;
 using TG.Manager.Service.Config;
 using TG.Manager.Service.Db;
 using TG.Manager.Service.Entities;
-using TG.Manager.Service.Services;
 
 namespace TG.Manager.Service.Application.Events
 {
@@ -22,17 +21,14 @@ namespace TG.Manager.Service.Application.Events
         private readonly IKubernetes _kubernetes;
         private readonly IQueueProducer<BattleEndedMessage> _queueProducer;
         private readonly IDateTimeProvider _dateTimeProvider;
-        private readonly ITestBattlesHelper _testBattlesHelper;
 
         public BattleStateChangedEventHandler(ApplicationDbContext dbContext, IKubernetes kubernetes,
-            IQueueProducer<BattleEndedMessage> queueProducer, IDateTimeProvider dateTimeProvider,
-            ITestBattlesHelper testBattlesHelper)
+            IQueueProducer<BattleEndedMessage> queueProducer, IDateTimeProvider dateTimeProvider)
         {
             _dbContext = dbContext;
             _kubernetes = kubernetes;
             _queueProducer = queueProducer;
             _dateTimeProvider = dateTimeProvider;
-            _testBattlesHelper = testBattlesHelper;
         }
 
         public async Task Handle(BattleStateChangedEvent notification, CancellationToken cancellationToken)
@@ -40,19 +36,14 @@ namespace TG.Manager.Service.Application.Events
             var lb = notification.BattleServer.LoadBalancer!;
             if (notification.State is BattleServerState.Ready)
             {
-                lb.PublicIp = _testBattlesHelper.IsTestServer(notification.BattleServer.BattleId)
-                    ? _testBattlesHelper.GetIp(notification.BattleServer.BattleId)
-                    : await TryGetLoadBalancerIpWithRetryAsync(lb.SvcName, 0, cancellationToken);
+                lb.PublicIp = await TryGetLoadBalancerIpWithRetryAsync(lb.SvcName, 0, cancellationToken);
                 lb.State = LoadBalancerState.Busy;
                 lb.LastUpdate = _dateTimeProvider.UtcNow;
                 await _dbContext.SaveChangesAsync(cancellationToken);
             }
             if (notification.State is BattleServerState.Ended)
             {
-                if (!_testBattlesHelper.IsTestServer(notification.BattleServer.BattleId))
-                {
-                    await _kubernetes.DeleteNamespacedDeploymentAsync(notification.BattleServer.DeploymentName, K8sNamespaces.Tg, cancellationToken: cancellationToken);
-                }
+                await _kubernetes.DeleteNamespacedDeploymentAsync(notification.BattleServer.DeploymentName, K8sNamespaces.Tg, cancellationToken: cancellationToken);
 
                 lb.State = LoadBalancerState.Active;
                 lb.LastUpdate = _dateTimeProvider.UtcNow;

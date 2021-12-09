@@ -8,6 +8,8 @@ namespace TG.Manager.Service.Db
     {
         public DbSet<BattleServer> BattleServers { get; set; } = default!;
         public DbSet<LoadBalancer> LoadBalancers { get; set; } = default!;
+        public DbSet<TestBattleServer> TestBattleServers { get; set; } = default!;
+
         
         public ApplicationDbContext(DbContextOptions options) : base(options)
         {

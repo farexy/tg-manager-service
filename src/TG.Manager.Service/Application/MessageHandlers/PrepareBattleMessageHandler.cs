@@ -39,7 +39,15 @@ namespace TG.Manager.Service.Application.MessageHandlers
 
         public async Task HandleMessage(PrepareBattleMessage message, CancellationToken cancellationToken)
         {
-            var loadBalancer = await GetActualLbAsync(message.BattleId, cancellationToken);
+            if (_testBattlesHelper.IsTestServer(message.BattleId))
+            {
+                return;
+            }
+            var loadBalancer = await _dbContext.LoadBalancers
+                .OrderByDescending(lb => lb.State)
+                .ThenBy(lb => lb.Port)
+                .FirstOrDefaultAsync(lb =>
+                    lb.State == LoadBalancerState.Active || lb.State == LoadBalancerState.Inactive, cancellationToken);
 
             loadBalancer ??= await InitNewLbAsync(cancellationToken);
 
@@ -68,19 +76,15 @@ namespace TG.Manager.Service.Application.MessageHandlers
             }
             else
             {
-                svcInitialization = _testBattlesHelper.IsTestServer(message.BattleId)
-                        ? Task.CompletedTask 
-                        : _kubernetes.CreateNamespacedServiceWithHttpMessagesAsync(service, K8sNamespaces.Tg, cancellationToken: cancellationToken);
+                svcInitialization = _kubernetes.CreateNamespacedServiceWithHttpMessagesAsync(
+                    service, K8sNamespaces.Tg, cancellationToken: cancellationToken);
                 loadBalancer.State = LoadBalancerState.Initializing;
             }
-            loadBalancer.SvcName = _testBattlesHelper.IsTestServer(message.BattleId)
-                ? _testBattlesHelper.GetSvcName(message.BattleId)
-                : service.Metadata.Name;
+            loadBalancer.SvcName = service.Metadata.Name;
             loadBalancer.LastUpdate = _dateTimeProvider.UtcNow;
 
-            var deploymentInitialization = _testBattlesHelper.IsTestServer(message.BattleId)
-                ? Task.CompletedTask
-                : _kubernetes.CreateNamespacedDeploymentWithHttpMessagesAsync(deployment, K8sNamespaces.Tg, cancellationToken: cancellationToken);
+            var deploymentInitialization = _kubernetes.CreateNamespacedDeploymentWithHttpMessagesAsync(
+                deployment,K8sNamespaces.Tg, cancellationToken: cancellationToken);
             
             await Task.WhenAll(
                 _dbContext.SaveChangesAsync(cancellationToken),
@@ -89,38 +93,14 @@ namespace TG.Manager.Service.Application.MessageHandlers
             );
         }
 
-        private async Task<LoadBalancer?> GetActualLbAsync(Guid battleId, CancellationToken cancellationToken)
-        {
-            if (_testBattlesHelper.IsTestServer(battleId))
-            {
-                var testLb = await _dbContext.LoadBalancers.FindAsync(_testBattlesHelper.GetPort(battleId));
-                if (testLb is null)
-                {
-                    testLb = new LoadBalancer
-                    {
-                        Port = _testBattlesHelper.GetPort(battleId),
-                        State = LoadBalancerState.Initializing,
-                    };
-                    await _dbContext.AddAsync(testLb, cancellationToken);
-                    await _dbContext.SaveChangesAsync(cancellationToken);
-                }
-
-                return testLb;
-            }
-
-            return await _dbContext.LoadBalancers
-                .OrderByDescending(lb => lb.State)
-                .ThenBy(lb => lb.Port)
-                .FirstOrDefaultAsync(lb =>
-                    lb.State == LoadBalancerState.Active || lb.State == LoadBalancerState.Inactive, cancellationToken);
-        }
-
         private async Task<LoadBalancer> InitNewLbAsync(CancellationToken cancellationToken)
         {
             int port;
             try
             {
-                port = await _dbContext.LoadBalancers.MaxAsync(s => s.Port, cancellationToken);
+                port = await _dbContext.LoadBalancers
+                    .Where(p => p.Port > _portsRange.Min)
+                    .MaxAsync(s => s.Port, cancellationToken);
                 port++;
             }
             catch (InvalidOperationException)
