@@ -54,6 +54,7 @@ namespace TG.Manager.Service
 
             services.Configure<PortsRange>(Configuration.GetSection(nameof(PortsRange)));
             services.Configure<LbManagerSettings>(Configuration.GetSection(nameof(LbManagerSettings)));
+            services.Configure<BsManagerSettings>(Configuration.GetSection(nameof(BsManagerSettings)));
             services.Configure<BattleSettings>(Configuration.GetSection(TgConfigs.BattleSettings));
 
             services.ConfigureInternalCalls(Configuration);
@@ -76,6 +77,7 @@ namespace TG.Manager.Service
             services.AddSingleton<IKubernetes>(new Kubernetes(Environment.GetK8sConfig()));
 
             services.AddHostedService<LoadBalancerManager>();
+            services.AddHostedService<BattleServersManager>();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.

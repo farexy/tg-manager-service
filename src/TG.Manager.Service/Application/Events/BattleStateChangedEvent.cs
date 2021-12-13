@@ -47,7 +47,6 @@ namespace TG.Manager.Service.Application.Events
 
                 lb.State = LoadBalancerState.Active;
                 lb.LastUpdate = _dateTimeProvider.UtcNow;
-                _dbContext.BattleServers.Remove(notification.BattleServer);
                 await _dbContext.SaveChangesAsync(cancellationToken);
                 await _queueProducer.SendMessageAsync(new BattleEndedMessage
                 {
