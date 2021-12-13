@@ -44,10 +44,6 @@ namespace TG.Manager.Service.Application.Events
             if (notification.State is BattleServerState.Ended)
             {
                 await _kubernetes.DeleteNamespacedDeploymentAsync(notification.BattleServer.DeploymentName, K8sNamespaces.Tg, cancellationToken: cancellationToken);
-
-                lb.State = LoadBalancerState.Active;
-                lb.LastUpdate = _dateTimeProvider.UtcNow;
-                await _dbContext.SaveChangesAsync(cancellationToken);
                 await _queueProducer.SendMessageAsync(new BattleEndedMessage
                 {
                     BattleId = notification.BattleServer.BattleId,

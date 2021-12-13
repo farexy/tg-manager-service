@@ -46,7 +46,6 @@ namespace TG.Manager.Service.Services
                 {
                     var inactiveTime = _dateTimeProvider.UtcNow.Subtract(TimeSpan.FromSeconds(_settings.BsTerminatingIntervalSec));
                     var abandonedServers = await dbContext.BattleServers
-                        .Include(bs => bs.LoadBalancer)
                         .Where(bs => bs.State == BattleServerState.Ready && bs.LastUpdate <= inactiveTime)
                         .ToListAsync(stoppingToken);
                     
@@ -64,11 +63,10 @@ namespace TG.Manager.Service.Services
 
                         bs.State = BattleServerState.Ended;
                         bs.LastUpdate = _dateTimeProvider.UtcNow;
-                        bs.LoadBalancer!.State = LoadBalancerState.Active;
-                        bs.LoadBalancer!.LastUpdate = _dateTimeProvider.UtcNow;
                     }));
 
                     var terminationsServers = await dbContext.BattleServers
+                        .Include(bs => bs.LoadBalancer)
                         .Where(bs => bs.State == BattleServerState.Ended)
                         .ToListAsync(stoppingToken);
 
@@ -83,6 +81,8 @@ namespace TG.Manager.Service.Services
                         catch (HttpOperationException httpEx) when (httpEx.Response?.StatusCode == HttpStatusCode.NotFound)
                         {
                             terminatedCount++;
+                            bs.LoadBalancer!.State = LoadBalancerState.Active;
+                            bs.LoadBalancer!.LastUpdate = _dateTimeProvider.UtcNow;
                             dbContext.Remove(bs);
                         }
                     }));
