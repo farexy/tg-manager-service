@@ -46,11 +46,27 @@ namespace TG.Manager.Service.Services
                 {
                     var inactiveTime = _dateTimeProvider.UtcNow.Subtract(TimeSpan.FromSeconds(_settings.BsTerminatingIntervalSec));
                     var abandonedServers = await dbContext.BattleServers
+                        .Include(bs => bs.LoadBalancer)
                         .Where(bs => bs.State == BattleServerState.Ready && bs.LastUpdate <= inactiveTime)
                         .ToListAsync(stoppingToken);
                     
-                    await Task.WhenAll(abandonedServers.Select(bs =>
-                        _kubernetes.DeleteNamespacedDeploymentAsync(bs.DeploymentName, K8sNamespaces.Tg, cancellationToken: stoppingToken)));
+                    await Task.WhenAll(abandonedServers.Select(async bs =>
+                    {
+                        try
+                        {
+                            await _kubernetes.DeleteNamespacedDeploymentAsync(bs.DeploymentName, K8sNamespaces.Tg,
+                                cancellationToken: stoppingToken);
+                        }
+                        catch (HttpOperationException httpEx) when (httpEx.Response?.StatusCode == HttpStatusCode.NotFound)
+                        {
+                            dbContext.Remove(bs);
+                        }
+
+                        bs.State = BattleServerState.Ended;
+                        bs.LastUpdate = _dateTimeProvider.UtcNow;
+                        bs.LoadBalancer!.State = LoadBalancerState.Active;
+                        bs.LoadBalancer!.LastUpdate = _dateTimeProvider.UtcNow;
+                    }));
 
                     var terminationsServers = await dbContext.BattleServers
                         .Where(bs => bs.State == BattleServerState.Ended)
