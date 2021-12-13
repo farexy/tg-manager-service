@@ -59,11 +59,11 @@ namespace TG.Manager.Service.Application.Events
 
         private async Task<string?> TryGetLoadBalancerIpWithRetryAsync(string svcName, int retryCount, CancellationToken cancellationToken)
         {
-            const int failRetry = 5;
+            const int failRetry = 8;
             const int retryMs = 3000;
             if (retryCount >= failRetry)
             {
-                throw new ApplicationException("Can not retrieve load balancer ip");
+                throw new ApplicationException("Can not retrieve load balancer ip. Service: " + svcName);
             }
             var service = await _kubernetes.ReadNamespacedServiceWithHttpMessagesAsync(
                 svcName, K8sNamespaces.Tg, cancellationToken: cancellationToken);

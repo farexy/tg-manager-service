@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using TG.Core.App.Configuration;
 using TG.Core.App.Configuration.TgConfig;
 using TG.Manager.Service.Config;
@@ -19,7 +20,14 @@ namespace TG.Manager.Service
                 .ConfigureAppConfiguration((ctx, configuration) =>
                 {
                     configuration.AddTgConfigs(TgConfigs.BattleSettings);
-                })                //.ConfigureTgLogging(ServiceConst.ServiceName)
+                }) 
+                .ConfigureLogging(logging => logging.AddSimpleConsole(c =>
+                    {
+                        c.TimestampFormat = "[yyyy-MM-dd HH:mm:ss] ";
+                        c.UseUtcTimestamp = true;
+                    }
+                ))
+                //.ConfigureTgLogging(ServiceConst.ServiceName)
                 .ConfigureWebHostDefaults(webBuilder =>
                 {
                     webBuilder.UseStartup<Startup>();
