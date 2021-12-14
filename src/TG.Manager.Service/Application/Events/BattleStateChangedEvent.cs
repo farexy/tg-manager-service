@@ -43,19 +43,21 @@ namespace TG.Manager.Service.Application.Events
             }
             if (notification.State is BattleServerState.Ended)
             {
-                await _kubernetes.DeleteNamespacedDeploymentAsync(notification.BattleServer.DeploymentName, K8sNamespaces.Tg, cancellationToken: cancellationToken);
-                await _queueProducer.SendMessageAsync(new BattleEndedMessage
-                {
-                    BattleId = notification.BattleServer.BattleId,
-                    Reason = BattleEndReason.Finished
-                });
+                await Task.WhenAll(
+                    _kubernetes.DeleteNamespacedDeploymentAsync(notification.BattleServer.DeploymentName,
+                        K8sNamespaces.Tg, cancellationToken: cancellationToken),
+                    _queueProducer.SendMessageAsync(new BattleEndedMessage
+                    {
+                        BattleId = notification.BattleServer.BattleId,
+                        Reason = BattleEndReason.Finished
+                    }));
             }
         }
 
         private async Task<string?> TryGetLoadBalancerIpWithRetryAsync(string svcName, int retryCount, CancellationToken cancellationToken)
         {
             const int failRetry = 8;
-            const int retryMs = 3000;
+            const int retryMs = 1500;
             if (retryCount >= failRetry)
             {
                 throw new ApplicationException("Can not retrieve load balancer ip. Service: " + svcName);

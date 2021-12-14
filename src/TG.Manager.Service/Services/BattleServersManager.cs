@@ -58,6 +58,10 @@ namespace TG.Manager.Service.Services
                         }
                         catch (HttpOperationException httpEx) when (httpEx.Response?.StatusCode == HttpStatusCode.NotFound)
                         {
+                            await dbContext.Entry(bs).Reference(b => b.LoadBalancer).LoadAsync(stoppingToken);
+                            
+                            bs.LoadBalancer!.State = LoadBalancerState.Active;
+                            bs.LoadBalancer!.LastUpdate = _dateTimeProvider.UtcNow;
                             dbContext.Remove(bs);
                         }
 
