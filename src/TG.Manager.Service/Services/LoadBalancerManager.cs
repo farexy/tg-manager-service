@@ -38,10 +38,10 @@ namespace TG.Manager.Service.Services
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            using var scope = _serviceProvider.CreateScope();
-            var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
             while (!stoppingToken.IsCancellationRequested)
             {
+                using var scope = _serviceProvider.CreateScope();
+                var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
                 try
                 {
                     var terminatingTime =

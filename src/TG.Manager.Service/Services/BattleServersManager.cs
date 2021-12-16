@@ -38,17 +38,23 @@ namespace TG.Manager.Service.Services
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            using var scope = _serviceProvider.CreateScope();
-            var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
             while (!stoppingToken.IsCancellationRequested)
             {
+                using var scope = _serviceProvider.CreateScope();
+                var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
                 try
                 {
-                    var inactiveTime = _dateTimeProvider.UtcNow.Subtract(TimeSpan.FromSeconds(_settings.BsTerminatingIntervalSec));
+                    var readyInactiveTime =
+                        _dateTimeProvider.UtcNow.Subtract(
+                            TimeSpan.FromSeconds(_settings.BsReadyTerminatingIntervalSec));
+                    var playingInactiveTime =
+                        _dateTimeProvider.UtcNow.Subtract(
+                            TimeSpan.FromSeconds(_settings.BsPlayingTerminatingIntervalSec));
                     var abandonedServers = await dbContext.BattleServers
-                        .Where(bs => bs.State == BattleServerState.Ready && bs.LastUpdate <= inactiveTime)
+                        .Where(bs => bs.State == BattleServerState.Ready && bs.LastUpdate <= readyInactiveTime
+                                     || (bs.State == BattleServerState.Playing || bs.State == BattleServerState.Waiting) && bs.LastUpdate <= playingInactiveTime)
                         .ToListAsync(stoppingToken);
-                    
+
                     await Task.WhenAll(abandonedServers.Select(async bs =>
                     {
                         try
@@ -56,10 +62,11 @@ namespace TG.Manager.Service.Services
                             await _kubernetes.DeleteNamespacedDeploymentAsync(bs.DeploymentName, K8sNamespaces.Tg,
                                 cancellationToken: stoppingToken);
                         }
-                        catch (HttpOperationException httpEx) when (httpEx.Response?.StatusCode == HttpStatusCode.NotFound)
+                        catch (HttpOperationException httpEx) when (httpEx.Response?.StatusCode ==
+                                                                    HttpStatusCode.NotFound)
                         {
                             await dbContext.Entry(bs).Reference(b => b.LoadBalancer).LoadAsync(stoppingToken);
-                            
+
                             bs.LoadBalancer!.State = LoadBalancerState.Active;
                             bs.LoadBalancer!.LastUpdate = _dateTimeProvider.UtcNow;
                             dbContext.Remove(bs);
@@ -82,7 +89,8 @@ namespace TG.Manager.Service.Services
                             await _kubernetes.ReadNamespacedDeploymentWithHttpMessagesAsync(
                                 bs.DeploymentName, K8sNamespaces.Tg, cancellationToken: stoppingToken);
                         }
-                        catch (HttpOperationException httpEx) when (httpEx.Response?.StatusCode == HttpStatusCode.NotFound)
+                        catch (HttpOperationException httpEx) when (httpEx.Response?.StatusCode ==
+                                                                    HttpStatusCode.NotFound)
                         {
                             terminatedCount++;
                             bs.LoadBalancer!.State = LoadBalancerState.Active;

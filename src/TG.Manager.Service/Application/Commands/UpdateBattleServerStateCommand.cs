@@ -47,6 +47,12 @@ namespace TG.Manager.Service.Application.Commands
             {
                 return AppErrors.NotFound;
             }
+
+            if (request.State < battleServer.State)
+            {
+                return AppErrors.InvalidBattleState;
+            }
+            
             battleServer.State = request.State;
             battleServer.LastUpdate = _dateTimeProvider.UtcNow;
 
