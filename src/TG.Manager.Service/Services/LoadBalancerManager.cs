@@ -48,6 +48,7 @@ namespace TG.Manager.Service.Services
                         _dateTimeProvider.UtcNow.Subtract(TimeSpan.FromSeconds(_settings.LbTerminatingIntervalSec));
                     var inactiveLbs = await dbContext.LoadBalancers
                         .Where(lb => lb.State == LoadBalancerState.Active && lb.LastUpdate <= terminatingTime)
+                        .Skip(1)
                         .ToListAsync(stoppingToken);
 
                     inactiveLbs.ForEach(lb =>

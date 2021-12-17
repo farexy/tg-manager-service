@@ -59,8 +59,8 @@ namespace TG.Manager.Service.Services
                     {
                         try
                         {
-                            // await _kubernetes.DeleteNamespacedDeploymentAsync(bs.DeploymentName, K8sNamespaces.Tg,
-                            //     cancellationToken: stoppingToken);
+                            await _kubernetes.DeleteNamespacedDeploymentAsync(bs.DeploymentName, K8sNamespaces.Tg,
+                                cancellationToken: stoppingToken);
                         }
                         catch (HttpOperationException httpEx) when (httpEx.Response?.StatusCode == HttpStatusCode.NotFound)
                         {
