@@ -56,8 +56,8 @@ namespace TG.Manager.Service.Application.Events
 
         private async Task<string?> TryGetLoadBalancerIpWithRetryAsync(string svcName, int retryCount, CancellationToken cancellationToken)
         {
-            const int failRetry = 8;
-            const int retryMs = 1500;
+            const int failRetry = 15;
+            const int retryMs = 3000;
             if (retryCount >= failRetry)
             {
                 throw new ApplicationException("Can not retrieve load balancer ip. Service: " + svcName);

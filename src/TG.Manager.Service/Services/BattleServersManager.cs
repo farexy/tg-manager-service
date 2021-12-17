@@ -59,16 +59,14 @@ namespace TG.Manager.Service.Services
                     {
                         try
                         {
-                            await _kubernetes.DeleteNamespacedDeploymentAsync(bs.DeploymentName, K8sNamespaces.Tg,
-                                cancellationToken: stoppingToken);
+                            // await _kubernetes.DeleteNamespacedDeploymentAsync(bs.DeploymentName, K8sNamespaces.Tg,
+                            //     cancellationToken: stoppingToken);
                         }
-                        catch (HttpOperationException httpEx) when (httpEx.Response?.StatusCode ==
-                                                                    HttpStatusCode.NotFound)
+                        catch (HttpOperationException httpEx) when (httpEx.Response?.StatusCode == HttpStatusCode.NotFound)
                         {
                             await dbContext.Entry(bs).Reference(b => b.LoadBalancer).LoadAsync(stoppingToken);
 
-                            bs.LoadBalancer!.State = LoadBalancerState.Active;
-                            bs.LoadBalancer!.LastUpdate = _dateTimeProvider.UtcNow;
+                            await ActivateLbAsync(bs.LoadBalancer!, stoppingToken);
                             dbContext.Remove(bs);
                         }
 
@@ -93,8 +91,7 @@ namespace TG.Manager.Service.Services
                                                                     HttpStatusCode.NotFound)
                         {
                             terminatedCount++;
-                            bs.LoadBalancer!.State = LoadBalancerState.Active;
-                            bs.LoadBalancer!.LastUpdate = _dateTimeProvider.UtcNow;
+                            await ActivateLbAsync(bs.LoadBalancer!, stoppingToken);
                             dbContext.Remove(bs);
                         }
                     }));
@@ -114,6 +111,38 @@ namespace TG.Manager.Service.Services
                     _logger.LogError(ex, "Unexpected exception");
                 }
             }
+        }
+
+        private async Task ActivateLbAsync(LoadBalancer lb, CancellationToken stoppingToken)
+        {
+            lb.LastUpdate = _dateTimeProvider.UtcNow;
+
+            if (lb.PublicIp is not null)
+            {
+                lb.State = LoadBalancerState.Active;
+                return;
+            }
+
+            try
+            {
+                var svc = await _kubernetes.ReadNamespacedServiceWithHttpMessagesAsync(
+                    lb.SvcName, K8sNamespaces.Tg, cancellationToken: stoppingToken);
+                var ip = svc.Body.Status.LoadBalancer.Ingress?.FirstOrDefault()?.Ip;
+                if (ip is null)
+                {
+                    lb.State = LoadBalancerState.Inactive;
+                }
+                else
+                {
+                    lb.State = LoadBalancerState.Active;
+                    lb.PublicIp = ip;
+                }
+            }
+            catch (HttpOperationException httpEx) when (httpEx.Response?.StatusCode == HttpStatusCode.NotFound)
+            {
+                lb.State = LoadBalancerState.Inactive;
+            }
+            
         }
     }
 }
