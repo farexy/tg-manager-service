@@ -103,6 +103,6 @@ namespace TG.Manager.Service.Application.Events
 
         private static string ParseAppLabel(string deploymentName) => deploymentName[..^DeploymentStrLen];
 
-        private static string LogsFileName(BattleServer server) => $"battles_{DateTime.UtcNow:dd.M.yyyy}/{server.BattleId}_({server.LoadBalancerPort}).log";
+        private static string LogsFileName(BattleServer server) => $"battles_{DateTime.UtcNow:MM.yyyy}/{server.BattleId}_({server.LoadBalancerPort}).log";
     }
 }
