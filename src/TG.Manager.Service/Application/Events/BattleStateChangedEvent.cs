@@ -43,7 +43,7 @@ namespace TG.Manager.Service.Application.Events
             var lb = notification.BattleServer.LoadBalancer!;
             if (notification.State is BattleServerState.Ready)
             {
-                lb.PublicIp = await TryGetLoadBalancerIpWithRetryAsync(lb.SvcName, 0, cancellationToken);
+                lb.PublicIp = await TryGetLoadBalancerIpWithRetryAsync(notification.BattleServer.DeploymentName, 0, cancellationToken);
                 lb.State = LoadBalancerState.Busy;
                 lb.LastUpdate = _dateTimeProvider.UtcNow;
                 await _dbContext.SaveChangesAsync(cancellationToken);
@@ -78,22 +78,24 @@ namespace TG.Manager.Service.Application.Events
             }
         }
 
-        private async Task<string?> TryGetLoadBalancerIpWithRetryAsync(string svcName, int retryCount, CancellationToken cancellationToken)
+        private async Task<string?> TryGetLoadBalancerIpWithRetryAsync(string deploymentName, int retryCount, CancellationToken cancellationToken)
         {
             const int failRetry = 15;
             const int retryMs = 3000;
             if (retryCount >= failRetry)
             {
-                throw new ApplicationException("Can not retrieve load balancer ip. Service: " + svcName);
+                throw new ApplicationException("Can not retrieve load balancer ip. Deployment: " + deploymentName);
             }
-            var service = await _kubernetes.ReadNamespacedServiceWithHttpMessagesAsync(
-                svcName, K8sNamespaces.Tg, cancellationToken: cancellationToken);
+            var pods = await _kubernetes.ListNamespacedPodAsync(K8sNamespaces.Tg,
+                labelSelector: "app=" + ParseAppLabel(deploymentName), cancellationToken: cancellationToken);
+            var node = await _kubernetes.ReadNodeAsync(pods.Items.Single().Spec.NodeName,
+                cancellationToken: cancellationToken);
 
-            var ip = service.Body.Status.LoadBalancer.Ingress?.FirstOrDefault()?.Ip;
+            var ip = node.Status.Addresses.FirstOrDefault(a => a.Type == "ExternalIP")?.Address;
             if (ip is null)
             {
                 await Task.Delay(retryMs, cancellationToken);
-                return await TryGetLoadBalancerIpWithRetryAsync(svcName, ++retryCount, cancellationToken);
+                return await TryGetLoadBalancerIpWithRetryAsync(deploymentName, ++retryCount, cancellationToken);
             }
 
             return ip;

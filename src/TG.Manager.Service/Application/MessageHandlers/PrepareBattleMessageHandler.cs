@@ -67,6 +67,8 @@ namespace TG.Manager.Service.Application.MessageHandlers
             };
             await _dbContext.BattleServers.AddAsync(battleServer, cancellationToken);
 
+            var deploymentInitialization = await _kubernetes.CreateNamespacedDeploymentWithHttpMessagesAsync(
+                deployment,K8sNamespaces.Tg, cancellationToken: cancellationToken);
             Task svcInitialization;
             if (loadBalancer.State == LoadBalancerState.Active)
             {
@@ -83,12 +85,8 @@ namespace TG.Manager.Service.Application.MessageHandlers
             loadBalancer.SvcName = service.Metadata.Name;
             loadBalancer.LastUpdate = _dateTimeProvider.UtcNow;
 
-            var deploymentInitialization = _kubernetes.CreateNamespacedDeploymentWithHttpMessagesAsync(
-                deployment,K8sNamespaces.Tg, cancellationToken: cancellationToken);
-            
             await Task.WhenAll(
                 _dbContext.SaveChangesAsync(cancellationToken),
-                deploymentInitialization,
                 svcInitialization
             );
         }
