@@ -10,6 +10,8 @@ using TG.Core.App.InternalCalls;
 using TG.Core.App.Middlewares;
 using TG.Core.App.Swagger;
 using TG.Core.Db.Postgres;
+using TG.Core.Files.Extensions;
+using TG.Core.Files.Options;
 using TG.Core.ServiceBus.Extensions;
 using TG.Core.ServiceBus.Messages;
 using TG.Manager.Service.Application.MessageHandlers;
@@ -75,6 +77,10 @@ namespace TG.Manager.Service
             services.AddSingleton<IRealtimeServerDeploymentConfigProvider, RealtimeServerDeploymentConfigProvider>();
 
             services.AddSingleton<IKubernetes>(new Kubernetes(Environment.GetK8sConfig()));
+
+            services.Configure<BlobStorageOptions>(opt =>
+                opt.StorageAccountUrl = Configuration.GetConnectionString("StorageAccount"));
+            services.AddBlobStorageContainerClient(BlobContainer.SystemLogs);
 
             services.AddHostedService<LoadBalancerManager>();
             services.AddHostedService<BattleServersManager>();
