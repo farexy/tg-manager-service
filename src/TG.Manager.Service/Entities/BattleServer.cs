@@ -16,6 +16,6 @@ namespace TG.Manager.Service.Entities
         
         public DateTime LastUpdate { get; set; }
         
-        public LoadBalancer? LoadBalancer { get; set; }
+        public NodePort? LoadBalancer { get; set; }
     }
 }

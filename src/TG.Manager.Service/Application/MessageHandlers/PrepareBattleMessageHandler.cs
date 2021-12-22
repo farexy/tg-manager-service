@@ -47,7 +47,7 @@ namespace TG.Manager.Service.Application.MessageHandlers
                 .OrderByDescending(lb => lb.State)
                 .ThenBy(lb => lb.Port)
                 .FirstOrDefaultAsync(lb =>
-                    lb.State == LoadBalancerState.Active || lb.State == LoadBalancerState.Inactive, cancellationToken);
+                    lb.State == NodePortState.Active || lb.State == NodePortState.Inactive, cancellationToken);
 
             loadBalancer ??= await InitNewLbAsync(cancellationToken);
 
@@ -70,7 +70,7 @@ namespace TG.Manager.Service.Application.MessageHandlers
             var deploymentInitialization = await _kubernetes.CreateNamespacedDeploymentWithHttpMessagesAsync(
                 deployment,K8sNamespaces.Tg, cancellationToken: cancellationToken);
             Task svcInitialization;
-            if (loadBalancer.State == LoadBalancerState.Active)
+            if (loadBalancer.State == NodePortState.Active)
             {
                 svcInitialization = Task.CompletedTask;
                 // not to conflict state with LbManager
@@ -80,7 +80,7 @@ namespace TG.Manager.Service.Application.MessageHandlers
             {
                 svcInitialization = _kubernetes.CreateNamespacedServiceWithHttpMessagesAsync(
                     service, K8sNamespaces.Tg, cancellationToken: cancellationToken);
-                loadBalancer.State = LoadBalancerState.Initializing;
+                loadBalancer.State = NodePortState.Initializing;
             }
             loadBalancer.SvcName = service.Metadata.Name;
             loadBalancer.LastUpdate = _dateTimeProvider.UtcNow;
@@ -91,7 +91,7 @@ namespace TG.Manager.Service.Application.MessageHandlers
             );
         }
 
-        private async Task<LoadBalancer> InitNewLbAsync(CancellationToken cancellationToken)
+        private async Task<NodePort> InitNewLbAsync(CancellationToken cancellationToken)
         {
             int port;
             try
@@ -106,10 +106,10 @@ namespace TG.Manager.Service.Application.MessageHandlers
                 port = _portsRange.Min;
             }
 
-            var lb = new LoadBalancer
+            var lb = new NodePort
             {
                 Port = port,
-                State = LoadBalancerState.Initializing,
+                State = NodePortState.Initializing,
             };
 
             await _dbContext.AddAsync(lb, cancellationToken);

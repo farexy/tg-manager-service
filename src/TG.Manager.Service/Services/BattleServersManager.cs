@@ -113,13 +113,13 @@ namespace TG.Manager.Service.Services
             }
         }
 
-        private async Task ActivateLbAsync(LoadBalancer lb, CancellationToken stoppingToken)
+        private async Task ActivateLbAsync(NodePort lb, CancellationToken stoppingToken)
         {
             lb.LastUpdate = _dateTimeProvider.UtcNow;
 
             if (lb.PublicIp is not null)
             {
-                lb.State = LoadBalancerState.Active;
+                lb.State = NodePortState.Active;
                 return;
             }
 
@@ -130,17 +130,17 @@ namespace TG.Manager.Service.Services
                 var ip = svc.Body.Status.LoadBalancer.Ingress?.FirstOrDefault()?.Ip;
                 if (ip is null)
                 {
-                    lb.State = LoadBalancerState.Inactive;
+                    lb.State = NodePortState.Inactive;
                 }
                 else
                 {
-                    lb.State = LoadBalancerState.Active;
+                    lb.State = NodePortState.Active;
                     lb.PublicIp = ip;
                 }
             }
             catch (HttpOperationException httpEx) when (httpEx.Response?.StatusCode == HttpStatusCode.NotFound)
             {
-                lb.State = LoadBalancerState.Inactive;
+                lb.State = NodePortState.Inactive;
             }
             
         }

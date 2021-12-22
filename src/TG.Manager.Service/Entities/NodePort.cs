@@ -2,7 +2,7 @@ using System;
 
 namespace TG.Manager.Service.Entities
 {
-    public class LoadBalancer
+    public class NodePort
     {
         public int Port { get; set; }
 
@@ -10,7 +10,7 @@ namespace TG.Manager.Service.Entities
         
         public string? PublicIp { get; set; }
         
-        public LoadBalancerState State { get; set; }
+        public NodePortState State { get; set; }
         
         public DateTime LastUpdate { get; set; }
     }

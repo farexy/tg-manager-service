@@ -44,7 +44,7 @@ namespace TG.Manager.Service.Application.Events
             if (notification.State is BattleServerState.Ready)
             {
                 lb.PublicIp = await TryGetLoadBalancerIpWithRetryAsync(notification.BattleServer.DeploymentName, 0, cancellationToken);
-                lb.State = LoadBalancerState.Busy;
+                lb.State = NodePortState.Busy;
                 lb.LastUpdate = _dateTimeProvider.UtcNow;
                 await _dbContext.SaveChangesAsync(cancellationToken);
             }

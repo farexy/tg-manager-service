@@ -7,7 +7,7 @@ namespace TG.Manager.Service.Db
     public class ApplicationDbContext : TgDbContext
     {
         public DbSet<BattleServer> BattleServers { get; set; } = default!;
-        public DbSet<LoadBalancer> LoadBalancers { get; set; } = default!;
+        public DbSet<NodePort> LoadBalancers { get; set; } = default!;
         public DbSet<TestBattleServer> TestBattleServers { get; set; } = default!;
 
         

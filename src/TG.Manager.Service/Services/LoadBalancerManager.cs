@@ -47,12 +47,12 @@ namespace TG.Manager.Service.Services
                     var terminatingTime =
                         _dateTimeProvider.UtcNow.Subtract(TimeSpan.FromSeconds(_settings.LbTerminatingIntervalSec));
                     var inactiveLbs = await dbContext.LoadBalancers
-                        .Where(lb => lb.State == LoadBalancerState.Active && lb.LastUpdate <= terminatingTime)
+                        .Where(lb => lb.State == NodePortState.Active && lb.LastUpdate <= terminatingTime)
                         .ToListAsync(stoppingToken);
 
                     inactiveLbs.ForEach(lb =>
                     {
-                        lb.State = LoadBalancerState.Terminating;
+                        lb.State = NodePortState.Terminating;
                         lb.LastUpdate = _dateTimeProvider.UtcNow;
                     });
                     await dbContext.SaveChangesAsync(stoppingToken);
@@ -60,7 +60,7 @@ namespace TG.Manager.Service.Services
                     await Task.Delay(TimeSpan.FromSeconds(_settings.ProcessingTimeoutSec), stoppingToken);
 
                     var disposingLbs = await dbContext.LoadBalancers
-                        .Where(lb => lb.State == LoadBalancerState.Disposing)
+                        .Where(lb => lb.State == NodePortState.Disposing)
                         .ToListAsync(stoppingToken);
                     await Task.WhenAll(
                         disposingLbs.Select(async lb =>
@@ -72,7 +72,7 @@ namespace TG.Manager.Service.Services
                             }
                             catch (HttpOperationException httpEx) when (httpEx.Response?.StatusCode == HttpStatusCode.NotFound)
                             {
-                                lb.State = LoadBalancerState.Inactive;
+                                lb.State = NodePortState.Inactive;
                                 lb.PublicIp = null;
                                 lb.LastUpdate = _dateTimeProvider.UtcNow;
                             }
@@ -82,12 +82,12 @@ namespace TG.Manager.Service.Services
                     await dbContext.SaveChangesAsync(stoppingToken);
 
                     var terminatingLbs = await dbContext.LoadBalancers
-                        .Where(lb => lb.State == LoadBalancerState.Terminating)
+                        .Where(lb => lb.State == NodePortState.Terminating)
                         .ToListAsync(stoppingToken);
                     await Task.WhenAll(
                         terminatingLbs.Select(lb =>
                         {
-                            lb.State = LoadBalancerState.Disposing;
+                            lb.State = NodePortState.Disposing;
                             lb.LastUpdate = _dateTimeProvider.UtcNow;
                             return _kubernetes.DeleteNamespacedServiceAsync(lb.SvcName, K8sNamespaces.Tg, cancellationToken: stoppingToken);
                         })

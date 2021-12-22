@@ -1,6 +1,6 @@
 namespace TG.Manager.Service.Entities
 {
-    public enum LoadBalancerState
+    public enum NodePortState
     {
         Inactive = 0,
         Initializing = 1,
