@@ -64,9 +64,10 @@ namespace TG.Manager.Service.Services
                         }
                         catch (HttpOperationException httpEx) when (httpEx.Response?.StatusCode == HttpStatusCode.NotFound)
                         {
-                            await dbContext.Entry(bs).Reference(b => b.LoadBalancer).LoadAsync(stoppingToken);
+                            await dbContext.Entry(bs).Reference(b => b.NodePort).LoadAsync(stoppingToken);
+                            bs.NodePort!.LastUpdate = _dateTimeProvider.UtcNow;
+                            bs.NodePort!.State = NodePortState.Active;
 
-                            await ActivateLbAsync(bs.LoadBalancer!, stoppingToken);
                             dbContext.Remove(bs);
                         }
 
@@ -75,7 +76,7 @@ namespace TG.Manager.Service.Services
                     }));
 
                     var terminationsServers = await dbContext.BattleServers
-                        .Include(bs => bs.LoadBalancer)
+                        .Include(bs => bs.NodePort)
                         .Where(bs => bs.State == BattleServerState.Ended)
                         .ToListAsync(stoppingToken);
 
@@ -91,7 +92,8 @@ namespace TG.Manager.Service.Services
                                                                     HttpStatusCode.NotFound)
                         {
                             terminatedCount++;
-                            await ActivateLbAsync(bs.LoadBalancer!, stoppingToken);
+                            bs.NodePort!.LastUpdate = _dateTimeProvider.UtcNow;
+                            bs.NodePort!.State = NodePortState.Active;
                             dbContext.Remove(bs);
                         }
                     }));
@@ -111,38 +113,6 @@ namespace TG.Manager.Service.Services
                     _logger.LogError(ex, "Unexpected exception");
                 }
             }
-        }
-
-        private async Task ActivateLbAsync(NodePort lb, CancellationToken stoppingToken)
-        {
-            lb.LastUpdate = _dateTimeProvider.UtcNow;
-
-            if (lb.PublicIp is not null)
-            {
-                lb.State = NodePortState.Active;
-                return;
-            }
-
-            try
-            {
-                var svc = await _kubernetes.ReadNamespacedServiceWithHttpMessagesAsync(
-                    lb.SvcName, K8sNamespaces.Tg, cancellationToken: stoppingToken);
-                var ip = svc.Body.Status.LoadBalancer.Ingress?.FirstOrDefault()?.Ip;
-                if (ip is null)
-                {
-                    lb.State = NodePortState.Inactive;
-                }
-                else
-                {
-                    lb.State = NodePortState.Active;
-                    lb.PublicIp = ip;
-                }
-            }
-            catch (HttpOperationException httpEx) when (httpEx.Response?.StatusCode == HttpStatusCode.NotFound)
-            {
-                lb.State = NodePortState.Inactive;
-            }
-            
         }
     }
 }

@@ -10,7 +10,7 @@ using TG.Manager.Service.Db;
 namespace TG.Manager.Service.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20211203162659_Initial")]
+    [Migration("20211223154323_Initial")]
     partial class Initial
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -41,9 +41,13 @@ namespace TG.Manager.Service.Migrations
                         .HasColumnType("timestamp without time zone")
                         .HasColumnName("last_update");
 
-                    b.Property<int>("LoadBalancerPort")
+                    b.Property<string>("NodeIp")
+                        .HasColumnType("text")
+                        .HasColumnName("node_ip");
+
+                    b.Property<int>("Port")
                         .HasColumnType("integer")
-                        .HasColumnName("load_balancer_port");
+                        .HasColumnName("port");
 
                     b.Property<int>("State")
                         .HasColumnType("integer")
@@ -52,14 +56,14 @@ namespace TG.Manager.Service.Migrations
                     b.HasKey("BattleId")
                         .HasName("pk_battle_servers");
 
-                    b.HasIndex("LoadBalancerPort")
+                    b.HasIndex("Port")
                         .IsUnique()
-                        .HasDatabaseName("ix_battle_servers_load_balancer_port");
+                        .HasDatabaseName("ix_battle_servers_port");
 
                     b.ToTable("battle_servers");
                 });
 
-            modelBuilder.Entity("TG.Manager.Service.Entities.LoadBalancer", b =>
+            modelBuilder.Entity("TG.Manager.Service.Entities.NodePort", b =>
                 {
                     b.Property<int>("Port")
                         .ValueGeneratedOnAdd()
@@ -71,10 +75,6 @@ namespace TG.Manager.Service.Migrations
                         .HasColumnType("timestamp without time zone")
                         .HasColumnName("last_update");
 
-                    b.Property<string>("PublicIp")
-                        .HasColumnType("text")
-                        .HasColumnName("public_ip");
-
                     b.Property<int>("State")
                         .HasColumnType("integer")
                         .HasColumnName("state");
@@ -85,21 +85,54 @@ namespace TG.Manager.Service.Migrations
                         .HasColumnName("svc_name");
 
                     b.HasKey("Port")
-                        .HasName("pk_load_balancers");
+                        .HasName("pk_node_ports");
 
-                    b.ToTable("load_balancers");
+                    b.ToTable("node_ports");
+                });
+
+            modelBuilder.Entity("TG.Manager.Service.Entities.TestBattleServer", b =>
+                {
+                    b.Property<Guid>("BattleId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("battle_id");
+
+                    b.Property<DateTime>("InitializationTime")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("initialization_time");
+
+                    b.Property<string>("Ip")
+                        .HasColumnType("text")
+                        .HasColumnName("ip");
+
+                    b.Property<DateTime>("LastUpdate")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("last_update");
+
+                    b.Property<int>("Port")
+                        .HasColumnType("integer")
+                        .HasColumnName("port");
+
+                    b.Property<int>("State")
+                        .HasColumnType("integer")
+                        .HasColumnName("state");
+
+                    b.HasKey("BattleId")
+                        .HasName("pk_test_battle_servers");
+
+                    b.ToTable("test_battle_servers");
                 });
 
             modelBuilder.Entity("TG.Manager.Service.Entities.BattleServer", b =>
                 {
-                    b.HasOne("TG.Manager.Service.Entities.LoadBalancer", "LoadBalancer")
+                    b.HasOne("TG.Manager.Service.Entities.NodePort", "NodePort")
                         .WithOne()
-                        .HasForeignKey("TG.Manager.Service.Entities.BattleServer", "LoadBalancerPort")
-                        .HasConstraintName("fk_battle_servers_load_balancers_load_balancer_port")
+                        .HasForeignKey("TG.Manager.Service.Entities.BattleServer", "Port")
+                        .HasConstraintName("fk_battle_servers_node_ports_port")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("LoadBalancer");
+                    b.Navigation("NodePort");
                 });
 #pragma warning restore 612, 618
         }

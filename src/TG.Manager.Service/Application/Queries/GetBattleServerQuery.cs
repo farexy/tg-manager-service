@@ -34,7 +34,7 @@ namespace TG.Manager.Service.Application.Queries
                 return await ReturnTestServerAsync(request.BattleId, cancellationToken);
             }
             var battleServer = await _dbContext.BattleServers
-                .Include(bs => bs.LoadBalancer)
+                .Include(bs => bs.NodePort)
                 .FirstOrDefaultAsync(bs => bs.BattleId == request.BattleId, cancellationToken);
             if (battleServer is null)
             {

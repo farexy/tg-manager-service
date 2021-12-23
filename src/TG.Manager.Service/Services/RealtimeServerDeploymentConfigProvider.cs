@@ -6,7 +6,7 @@ namespace TG.Manager.Service.Services
 {
     public class RealtimeServerDeploymentConfigProvider : IRealtimeServerDeploymentConfigProvider
     {
-        private const string PortPlaceholder = "##PORT##";
+        private const string PortPlaceholder = "##NODE_PORT##";
         private const string BattleIdPlaceholder = "##BATTLE_ID##";
         private readonly IConfigsClient _configsClient;
         private const string ConfigId = "realtime-server-deployment";

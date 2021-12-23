@@ -53,8 +53,8 @@ namespace TG.Manager.Service.Application.Events
             if (notification.State is BattleServerState.Ready)
             {
                 battleServer.InitializationTime = _dateTimeProvider.UtcNow;
-                battleServer.LoadBalancerPort = _testBattlesHelper.GetPort(notification.BattleId);
-                battleServer.LoadBalancerIp = _testBattlesHelper.GetIp(notification.BattleId);
+                battleServer.Port = _testBattlesHelper.GetPort(notification.BattleId);
+                battleServer.Ip = _testBattlesHelper.GetIp(notification.BattleId);
             }
             if (notification.State is BattleServerState.Ended)
             {

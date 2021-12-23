@@ -46,7 +46,7 @@ namespace TG.Manager.Service.Services
                 {
                     var terminatingTime =
                         _dateTimeProvider.UtcNow.Subtract(TimeSpan.FromSeconds(_settings.LbTerminatingIntervalSec));
-                    var inactiveLbs = await dbContext.LoadBalancers
+                    var inactiveLbs = await dbContext.NodePorts
                         .Where(lb => lb.State == NodePortState.Active && lb.LastUpdate <= terminatingTime)
                         .ToListAsync(stoppingToken);
 
@@ -59,7 +59,7 @@ namespace TG.Manager.Service.Services
                     
                     await Task.Delay(TimeSpan.FromSeconds(_settings.ProcessingTimeoutSec), stoppingToken);
 
-                    var disposingLbs = await dbContext.LoadBalancers
+                    var disposingLbs = await dbContext.NodePorts
                         .Where(lb => lb.State == NodePortState.Disposing)
                         .ToListAsync(stoppingToken);
                     await Task.WhenAll(
@@ -73,7 +73,7 @@ namespace TG.Manager.Service.Services
                             catch (HttpOperationException httpEx) when (httpEx.Response?.StatusCode == HttpStatusCode.NotFound)
                             {
                                 lb.State = NodePortState.Inactive;
-                                lb.PublicIp = null;
+                                //lb.PublicIp = null;
                                 lb.LastUpdate = _dateTimeProvider.UtcNow;
                             }
                         })
@@ -81,7 +81,7 @@ namespace TG.Manager.Service.Services
 
                     await dbContext.SaveChangesAsync(stoppingToken);
 
-                    var terminatingLbs = await dbContext.LoadBalancers
+                    var terminatingLbs = await dbContext.NodePorts
                         .Where(lb => lb.State == NodePortState.Terminating)
                         .ToListAsync(stoppingToken);
                     await Task.WhenAll(

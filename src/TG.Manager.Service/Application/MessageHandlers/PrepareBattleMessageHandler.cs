@@ -43,16 +43,16 @@ namespace TG.Manager.Service.Application.MessageHandlers
             {
                 return;
             }
-            var loadBalancer = await _dbContext.LoadBalancers
-                .OrderByDescending(lb => lb.State)
-                .ThenBy(lb => lb.Port)
-                .FirstOrDefaultAsync(lb =>
-                    lb.State == NodePortState.Active || lb.State == NodePortState.Inactive, cancellationToken);
+            var nodePort = await _dbContext.NodePorts
+                .OrderByDescending(port => port.State)
+                .ThenBy(port => port.Port)
+                .FirstOrDefaultAsync(port =>
+                    port.State == NodePortState.Active || port.State == NodePortState.Inactive, cancellationToken);
 
-            loadBalancer ??= await InitNewLbAsync(cancellationToken);
+            nodePort ??= await InitNewPortAsync(cancellationToken);
 
             var yaml = Yaml.LoadAllFromString(
-                await _realtimeServerDeploymentConfigProvider.GetDeploymentYamlAsync(loadBalancer.Port, message.BattleId));
+                await _realtimeServerDeploymentConfigProvider.GetDeploymentYamlAsync(nodePort.Port, message.BattleId));
             var deployment = (yaml[0] as V1Deployment)!;
             var service = (yaml[1] as V1Service)!;
     
@@ -60,44 +60,45 @@ namespace TG.Manager.Service.Application.MessageHandlers
             {
                 BattleId = message.BattleId,
                 State = BattleServerState.Initializing,
-                LoadBalancer = loadBalancer,
+                NodePort = nodePort,
                 DeploymentName = deployment.Metadata.Name,
                 InitializationTime = _dateTimeProvider.UtcNow,
                 LastUpdate = _dateTimeProvider.UtcNow,
             };
             await _dbContext.BattleServers.AddAsync(battleServer, cancellationToken);
 
-            var deploymentInitialization = await _kubernetes.CreateNamespacedDeploymentWithHttpMessagesAsync(
-                deployment,K8sNamespaces.Tg, cancellationToken: cancellationToken);
             Task svcInitialization;
-            if (loadBalancer.State == NodePortState.Active)
+            if (nodePort.State == NodePortState.Active)
             {
                 svcInitialization = Task.CompletedTask;
                 // not to conflict state with LbManager
-                _dbContext.Entry(loadBalancer).Property(lb => lb.State).IsModified = true;
+                _dbContext.Entry(nodePort).Property(port => port.State).IsModified = true;
             }
             else
             {
                 svcInitialization = _kubernetes.CreateNamespacedServiceWithHttpMessagesAsync(
                     service, K8sNamespaces.Tg, cancellationToken: cancellationToken);
-                loadBalancer.State = NodePortState.Initializing;
+                nodePort.State = NodePortState.Initializing;
             }
-            loadBalancer.SvcName = service.Metadata.Name;
-            loadBalancer.LastUpdate = _dateTimeProvider.UtcNow;
+            nodePort.SvcName = service.Metadata.Name;
+            nodePort.LastUpdate = _dateTimeProvider.UtcNow;
 
+            var deploymentInitialization = _kubernetes.CreateNamespacedDeploymentWithHttpMessagesAsync(
+                deployment,K8sNamespaces.Tg, cancellationToken: cancellationToken);
             await Task.WhenAll(
                 _dbContext.SaveChangesAsync(cancellationToken),
-                svcInitialization
+                svcInitialization,
+                deploymentInitialization
             );
         }
 
-        private async Task<NodePort> InitNewLbAsync(CancellationToken cancellationToken)
+        private async Task<NodePort> InitNewPortAsync(CancellationToken cancellationToken)
         {
             int port;
             try
             {
-                port = await _dbContext.LoadBalancers
-                    .Where(p => p.Port > _portsRange.Min)
+                port = await _dbContext.NodePorts
+                    .Where(p => p.Port >= _portsRange.Min)
                     .MaxAsync(s => s.Port, cancellationToken);
                 port++;
             }
@@ -106,14 +107,14 @@ namespace TG.Manager.Service.Application.MessageHandlers
                 port = _portsRange.Min;
             }
 
-            var lb = new NodePort
+            var nodePort = new NodePort
             {
                 Port = port,
                 State = NodePortState.Initializing,
             };
 
-            await _dbContext.AddAsync(lb, cancellationToken);
-            return lb;
+            await _dbContext.AddAsync(nodePort, cancellationToken);
+            return nodePort;
         }
     }
 }

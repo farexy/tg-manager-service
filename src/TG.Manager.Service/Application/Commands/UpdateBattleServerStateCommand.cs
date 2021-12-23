@@ -40,7 +40,7 @@ namespace TG.Manager.Service.Application.Commands
             }
 
             var battleServer = await _dbContext.BattleServers
-                .Include(bs => bs.LoadBalancer)
+                .Include(bs => bs.NodePort)
                 .FirstOrDefaultAsync(b => b.BattleId == request.BattleId, cancellationToken);
 
             if (battleServer is null)

@@ -8,9 +8,9 @@ namespace TG.Manager.Service.Entities
 
         public BattleServerState State { get; set; }
 
-        public int LoadBalancerPort { get; set; }
+        public int Port { get; set; }
         
-        public string? LoadBalancerIp { get; set; }
+        public string? Ip { get; set; }
         
         public DateTime InitializationTime { get; set; }
         

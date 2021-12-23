@@ -12,6 +12,7 @@ using TG.Core.ServiceBus.Messages;
 using TG.Manager.Service.Config;
 using TG.Manager.Service.Db;
 using TG.Manager.Service.Entities;
+using TG.Manager.Service.Services;
 
 namespace TG.Manager.Service.Application.Events
 {
@@ -25,10 +26,11 @@ namespace TG.Manager.Service.Application.Events
         private readonly IDateTimeProvider _dateTimeProvider;
         private readonly IStorageContainerClient _storage;
         private readonly ILogger<BattleStateChangedEventHandler> _logger;
+        private readonly INodeProvider _nodeProvider;
 
         public BattleStateChangedEventHandler(ApplicationDbContext dbContext, IKubernetes kubernetes,
             IQueueProducer<BattleEndedMessage> queueProducer, IDateTimeProvider dateTimeProvider, IStorageContainerClient storage,
-            ILogger<BattleStateChangedEventHandler> logger)
+            ILogger<BattleStateChangedEventHandler> logger, INodeProvider nodeProvider)
         {
             _dbContext = dbContext;
             _kubernetes = kubernetes;
@@ -36,16 +38,19 @@ namespace TG.Manager.Service.Application.Events
             _dateTimeProvider = dateTimeProvider;
             _storage = storage;
             _logger = logger;
+            _nodeProvider = nodeProvider;
         }
 
         public async Task Handle(BattleStateChangedEvent notification, CancellationToken cancellationToken)
         {
-            var lb = notification.BattleServer.LoadBalancer!;
+            var server = notification.BattleServer;
+            var nodePort = notification.BattleServer.NodePort!;
             if (notification.State is BattleServerState.Ready)
             {
-                lb.PublicIp = await TryGetLoadBalancerIpWithRetryAsync(notification.BattleServer.DeploymentName, 0, cancellationToken);
-                lb.State = NodePortState.Busy;
-                lb.LastUpdate = _dateTimeProvider.UtcNow;
+                server.NodeIp = await _nodeProvider
+                    .TryGetNodeIpWithRetryAsync(ParseAppLabel(notification.BattleServer.DeploymentName), cancellationToken);
+                nodePort.State = NodePortState.Busy;
+                nodePort.LastUpdate = _dateTimeProvider.UtcNow;
                 await _dbContext.SaveChangesAsync(cancellationToken);
             }
             if (notification.State is BattleServerState.Ended)
@@ -78,33 +83,12 @@ namespace TG.Manager.Service.Application.Events
             }
         }
 
-        private async Task<string?> TryGetLoadBalancerIpWithRetryAsync(string deploymentName, int retryCount, CancellationToken cancellationToken)
-        {
-            const int failRetry = 15;
-            const int retryMs = 3000;
-            if (retryCount >= failRetry)
-            {
-                throw new ApplicationException("Can not retrieve load balancer ip. Deployment: " + deploymentName);
-            }
-            var pods = await _kubernetes.ListNamespacedPodAsync(K8sNamespaces.Tg,
-                labelSelector: "app=" + ParseAppLabel(deploymentName), cancellationToken: cancellationToken);
-            var node = await _kubernetes.ReadNodeAsync(pods.Items.Single().Spec.NodeName,
-                cancellationToken: cancellationToken);
 
-            var ip = node.Status.Addresses.FirstOrDefault(a => a.Type == "ExternalIP")?.Address;
-            if (ip is null)
-            {
-                await Task.Delay(retryMs, cancellationToken);
-                return await TryGetLoadBalancerIpWithRetryAsync(deploymentName, ++retryCount, cancellationToken);
-            }
-
-            return ip;
-        }
 
         private static readonly int DeploymentStrLen = "-deployment".Length;
 
         private static string ParseAppLabel(string deploymentName) => deploymentName[..^DeploymentStrLen];
 
-        private static string LogsFileName(BattleServer server) => $"battles_{DateTime.UtcNow:MM.yyyy}/{server.BattleId}_({server.LoadBalancerPort}).log";
+        private static string LogsFileName(BattleServer server) => $"battles_{DateTime.UtcNow:MM.yyyy}/{server.BattleId}.log";
     }
 }

@@ -9,8 +9,8 @@ namespace TG.Manager.Service.Config.Mapper
         public BattleServerProfile()
         {
             CreateMap<BattleServer, BattleServerResponse>()
-                .ForMember(dest => dest.LoadBalancerIp, opt =>
-                    opt.MapFrom(src => src.LoadBalancer == null ? null : src.LoadBalancer.PublicIp));
+                .ForMember(dest => dest.Ip, opt =>
+                    opt.MapFrom(src => src.NodePort == null ? null : src.NodeIp));
             CreateMap<TestBattleServer, BattleServerResponse>();
         }
     }

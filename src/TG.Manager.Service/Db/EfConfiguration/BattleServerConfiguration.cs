@@ -9,9 +9,9 @@ namespace TG.Manager.Service.Db.EfConfiguration
         public void Configure(EntityTypeBuilder<BattleServer> entity)
         {
             entity.HasKey(bs => bs.BattleId);
-            entity.HasOne(bs => bs.LoadBalancer)
+            entity.HasOne(bs => bs.NodePort)
                 .WithOne()
-                .HasForeignKey<BattleServer>(bs => bs.LoadBalancerPort);
+                .HasForeignKey<BattleServer>(bs => bs.Port);
         }
     }
 }

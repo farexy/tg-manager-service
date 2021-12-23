@@ -8,7 +8,9 @@ namespace TG.Manager.Service.Entities
 
         public BattleServerState State { get; set; }
 
-        public int LoadBalancerPort { get; set; }
+        public int Port { get; set; }
+        
+        public string? NodeIp { get; set; }
 
         public string DeploymentName { get; set; } = default!;
         
@@ -16,6 +18,6 @@ namespace TG.Manager.Service.Entities
         
         public DateTime LastUpdate { get; set; }
         
-        public NodePort? LoadBalancer { get; set; }
+        public NodePort? NodePort { get; set; }
     }
 }

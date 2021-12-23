@@ -6,7 +6,8 @@ namespace TG.Manager.Service.Entities
         Initializing = 1,
         Active = 2,
         Busy = 3,
-        Terminating = 4,
-        Disposing = 5,
+        Reserved = 4,
+        Terminating = 5,
+        Disposing = 6,
     }
 }

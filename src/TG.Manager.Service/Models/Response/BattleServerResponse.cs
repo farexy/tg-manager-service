@@ -9,8 +9,8 @@ namespace TG.Manager.Service.Models.Response
         
         public Guid BattleId { get; set; }
 
-        public int LoadBalancerPort { get; set; }
+        public int Port { get; set; }
 
-        public string? LoadBalancerIp { get; set; }
+        public string? Ip { get; set; }
     }
 }

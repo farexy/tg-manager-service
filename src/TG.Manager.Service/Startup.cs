@@ -77,6 +77,7 @@ namespace TG.Manager.Service
             services.AddSingleton<IRealtimeServerDeploymentConfigProvider, RealtimeServerDeploymentConfigProvider>();
 
             services.AddSingleton<IKubernetes>(new Kubernetes(Environment.GetK8sConfig()));
+            services.AddSingleton<INodeProvider, NodeProvider>();
 
             services.Configure<BlobStorageOptions>(opt =>
                 opt.StorageAccountUrl = Configuration.GetConnectionString("StorageAccount"));
