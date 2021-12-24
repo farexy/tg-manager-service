@@ -14,6 +14,7 @@ using TG.Core.Files.Extensions;
 using TG.Core.Files.Options;
 using TG.Core.ServiceBus.Extensions;
 using TG.Core.ServiceBus.Messages;
+using TG.Manager.Service.Application.Background;
 using TG.Manager.Service.Application.MessageHandlers;
 using TG.Manager.Service.Config;
 using TG.Manager.Service.Config.Options;
@@ -84,6 +85,7 @@ namespace TG.Manager.Service
             services.AddBlobStorageContainerClient(BlobContainer.SystemLogs);
 
             //services.AddHostedService<LoadBalancerManager>();
+            services.AddHostedService<NodePortsManager>();
             services.AddHostedService<BattleServersManager>();
         }
 

@@ -16,7 +16,7 @@ using TG.Manager.Service.Config.Options;
 using TG.Manager.Service.Db;
 using TG.Manager.Service.Entities;
 
-namespace TG.Manager.Service.Services
+namespace TG.Manager.Service.Application.Background
 {
     public class LoadBalancerManager : BackgroundService
     {
