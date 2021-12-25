@@ -82,7 +82,7 @@ namespace TG.Manager.Service
 
             services.Configure<BlobStorageOptions>(opt =>
                 opt.StorageAccountUrl = Configuration.GetConnectionString("StorageAccount"));
-            services.AddBlobStorageContainerClient(BlobContainer.SystemLogs);
+            services.AddBlobStorageContainerClient(BlobContainers.SystemLogs);
 
             //services.AddHostedService<LoadBalancerManager>();
             services.AddHostedService<NodePortsManager>();

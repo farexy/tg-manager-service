@@ -25,14 +25,17 @@ namespace TG.Manager.Service.Application.Background
         private readonly IDateTimeProvider _dateTimeProvider;
         private readonly IKubernetes _kubernetes;
         private readonly ILogger<LoadBalancerManager> _logger;
+        private readonly PortsRange _portsRange;
 
         public NodePortsManager(IServiceProvider serviceProvider, IOptions<PortsManagerSettings> settings,
-            IDateTimeProvider dateTimeProvider, IKubernetes kubernetes, ILogger<LoadBalancerManager> logger)
+            IDateTimeProvider dateTimeProvider, IKubernetes kubernetes, ILogger<LoadBalancerManager> logger,
+            IOptions<PortsRange> portsRange)
         {
             _serviceProvider = serviceProvider;
             _dateTimeProvider = dateTimeProvider;
             _kubernetes = kubernetes;
             _logger = logger;
+            _portsRange = portsRange.Value;
             _settings = settings.Value;
         }
 
@@ -45,6 +48,10 @@ namespace TG.Manager.Service.Application.Background
                 try
                 {
                     // todo reserved ports
+                    var services = await _kubernetes.ListNamespacedServiceWithHttpMessagesAsync(
+                        K8sNamespaces.Tg, cancellationToken: stoppingToken);
+                    var reserved = services.Body.Items.Where(s =>
+                        s.Spec.Ports.Any(p => p.NodePort >= _portsRange.Min && p.NodePort <= _portsRange.Max));
                     
                     var terminatingTime =
                         _dateTimeProvider.UtcNow.Subtract(TimeSpan.FromSeconds(_settings.TerminatingIntervalHours));
