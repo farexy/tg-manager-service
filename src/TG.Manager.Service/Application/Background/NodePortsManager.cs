@@ -41,18 +41,14 @@ namespace TG.Manager.Service.Application.Background
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
+            await ProcessReservedPortsAsync(stoppingToken);
+
             while (!stoppingToken.IsCancellationRequested)
             {
                 using var scope = _serviceProvider.CreateScope();
                 var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
                 try
                 {
-                    // todo reserved ports
-                    var services = await _kubernetes.ListNamespacedServiceWithHttpMessagesAsync(
-                        K8sNamespaces.Tg, cancellationToken: stoppingToken);
-                    var reserved = services.Body.Items.Where(s =>
-                        s.Spec.Ports.Any(p => p.NodePort >= _portsRange.Min && p.NodePort <= _portsRange.Max));
-                    
                     var terminatingTime =
                         _dateTimeProvider.UtcNow.Subtract(TimeSpan.FromSeconds(_settings.TerminatingIntervalHours));
                     var inactivePorts = await dbContext.NodePorts
@@ -82,7 +78,6 @@ namespace TG.Manager.Service.Application.Background
                             catch (HttpOperationException httpEx) when (httpEx.Response?.StatusCode == HttpStatusCode.NotFound)
                             {
                                 lb.State = NodePortState.Inactive;
-                                //lb.PublicIp = null;
                                 lb.LastUpdate = _dateTimeProvider.UtcNow;
                             }
                         })
@@ -110,6 +105,45 @@ namespace TG.Manager.Service.Application.Background
                     _logger.LogError(ex, "Unexpected exception");
                 }
             }
+        }
+
+        private async Task ProcessReservedPortsAsync(CancellationToken stoppingToken)
+        {
+            const string nonBattleServerSvcSelector = "type!=bs";
+
+            using var scope = _serviceProvider.CreateScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+            var services = await _kubernetes.ListNamespacedServiceAsync(
+                K8sNamespaces.Tg,
+                labelSelector: nonBattleServerSvcSelector,
+                cancellationToken: stoppingToken);
+            var reservedServices = services.Items.Where(s =>
+                    s.Spec.Ports.Any(p => p.NodePort.HasValue && p.NodePort >= _portsRange.Min && p.NodePort <= _portsRange.Max))
+                .ToList();
+
+            var existingReservedPorts = await dbContext.NodePorts
+                .Where(p => p.State == NodePortState.Reserved)
+                .ToListAsync(stoppingToken);
+            foreach (var reservedSvc in reservedServices)
+            {
+                var port = reservedSvc.Spec.Ports.First().NodePort!.Value;
+                if (existingReservedPorts.All(record => record.Port != port))
+                {
+                    await dbContext.AddAsync(new NodePort
+                    {
+                        Port = port,
+                        LastUpdate = _dateTimeProvider.UtcNow,
+                        State = NodePortState.Reserved,
+                        SvcName = reservedSvc.Metadata.Name,
+                    }, stoppingToken);
+                }
+            }
+                    
+            dbContext.RemoveRange(existingReservedPorts
+                .Where(p => reservedServices.All(svc => svc.Metadata.Name != p.SvcName)));
+
+            await dbContext.SaveChangesAsync(stoppingToken);
         }
     }
 }

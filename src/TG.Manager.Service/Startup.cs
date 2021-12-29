@@ -57,6 +57,7 @@ namespace TG.Manager.Service
 
             services.Configure<PortsRange>(Configuration.GetSection(nameof(PortsRange)));
             services.Configure<LbManagerSettings>(Configuration.GetSection(nameof(LbManagerSettings)));
+            services.Configure<PortsManagerSettings>(Configuration.GetSection(nameof(PortsManagerSettings)));
             services.Configure<BsManagerSettings>(Configuration.GetSection(nameof(BsManagerSettings)));
             services.Configure<BattleSettings>(Configuration.GetSection(TgConfigs.BattleSettings));
 
