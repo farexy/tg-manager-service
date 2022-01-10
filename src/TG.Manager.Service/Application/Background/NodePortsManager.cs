@@ -50,7 +50,7 @@ namespace TG.Manager.Service.Application.Background
                 try
                 {
                     var terminatingTime =
-                        _dateTimeProvider.UtcNow.Subtract(TimeSpan.FromSeconds(_settings.TerminatingIntervalHours));
+                        _dateTimeProvider.UtcNow.Subtract(TimeSpan.FromHours(_settings.TerminatingIntervalHours));
                     var inactivePorts = await dbContext.NodePorts
                         .Where(lb => lb.State == NodePortState.Active && lb.LastUpdate <= terminatingTime)
                         .ToListAsync(stoppingToken);

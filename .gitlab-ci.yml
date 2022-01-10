@@ -85,6 +85,11 @@ variables:
     - sed -i -e 's/##ENVIRONMENT##/'$ENVIRONMENT'/g' k8s/ingress_route.yaml
     - sed -i -e 's/##SERVICE_ROUTE_PREFIX##/'$SERVICE_ROUTE_PREFIX'/g' k8s/ingress_route.yaml
 
+    - sed -i -e 's/##SERVICE_NAME##/'$SERVICE_NAME'/g' k8s/dev_bs_ingress_route.yaml
+    - sed -i -e 's/##SERVICE_NAMESPACE##/'$SERVICE_NAMESPACE'/g' k8s/dev_bs_ingress_route.yaml
+    - sed -i -e 's/##ENVIRONMENT##/'$ENVIRONMENT'/g' k8s/dev_bs_ingress_route.yaml
+    - sed -i -e 's/##SERVICE_ROUTE_PREFIX##/'$SERVICE_ROUTE_PREFIX'/g' k8s/dev_bs_ingress_route.yaml
+
     - az login --service-principal -u $SERVICE_USER -p $SERVICE_USER_PWD --tenant $TENANT_ID
     - az aks get-credentials -n $CLUSTER_NAME -g tg-$ENVIRONMENT
     - kubectl apply -f k8s/namespace.yaml
@@ -93,6 +98,7 @@ variables:
     - kubectl apply -f k8s/service.yaml
     - kubectl apply -f k8s/autoscale.yaml
     - kubectl apply -f k8s/ingress_route.yaml
+    - if [ "$OPEN_BS_ROUTE" = "true" ] ; then kubectl apply -f k8s/dev_bs_ingress_route.yaml ; fi
 
 'DEV Deploy to cluster': 
   stage: deploy_dev
@@ -111,5 +117,6 @@ variables:
     MEMORY_LIMIT: '300M'
     MEMORY_SCALE_THRESHOLD: '250M'
     CLUSTER_NAME: eastus2-dev-tg-cluster
+    OPEN_BS_ROUTE: 'true'
   only:
     - master
