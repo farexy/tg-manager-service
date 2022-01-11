@@ -4,11 +4,13 @@ using TG.Manager.Service.Entities;
 
 namespace TG.Manager.Service.Db.EfConfiguration
 {
-    public class LoadBalancerConfiguration : IEntityTypeConfiguration<NodePort>
+    public class NodePortConfiguration : IEntityTypeConfiguration<NodePort>
     {
         public void Configure(EntityTypeBuilder<NodePort> entity)
         {
-            entity.HasKey(lb => lb.Port);
+            entity.HasKey(p => p.Port);
+            entity.Property(p => p.LastUpdate)
+                .IsConcurrencyToken();
         }
     }
 }

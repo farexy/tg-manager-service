@@ -6,7 +6,7 @@ namespace TG.Manager.Service.Entities
     {
         public int Port { get; set; }
 
-        public string SvcName { get; set; } = default!;
+        public string? SvcName { get; set; }
 
         public NodePortState State { get; set; }
         

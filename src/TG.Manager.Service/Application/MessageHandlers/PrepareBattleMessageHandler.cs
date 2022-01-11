@@ -6,6 +6,7 @@ using k8s;
 using k8s.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Npgsql;
 using TG.Core.App.Services;
 using TG.Core.ServiceBus;
 using TG.Core.ServiceBus.Messages;
@@ -43,13 +44,8 @@ namespace TG.Manager.Service.Application.MessageHandlers
             {
                 return;
             }
-            var nodePort = await _dbContext.NodePorts
-                .OrderByDescending(port => port.State)
-                .ThenBy(port => port.Port)
-                .FirstOrDefaultAsync(port =>
-                    port.State == NodePortState.Active || port.State == NodePortState.Inactive, cancellationToken);
 
-            nodePort ??= await InitNewPortAsync(cancellationToken);
+            var nodePort = await AllocatePortAsync(cancellationToken);
 
             var yaml = Yaml.LoadAllFromString(
                 await _realtimeServerDeploymentConfigProvider.GetDeploymentYamlAsync(nodePort.Port, message.BattleId));
@@ -90,6 +86,40 @@ namespace TG.Manager.Service.Application.MessageHandlers
                 svcInitialization,
                 deploymentInitialization
             );
+        }
+
+        private async Task<NodePort> AllocatePortAsync(CancellationToken cancellationToken)
+        {
+            var nodePort = await _dbContext.NodePorts
+                .OrderByDescending(port => port.State)
+                .ThenBy(port => port.Port)
+                .FirstOrDefaultAsync(port =>
+                    port.State == NodePortState.Active || port.State == NodePortState.Inactive, cancellationToken);
+
+            nodePort ??= await InitNewPortAsync(cancellationToken);
+
+            nodePort.State = nodePort.State is NodePortState.Active 
+                ? NodePortState.Busy 
+                : NodePortState.Initializing;
+            nodePort.LastUpdate = _dateTimeProvider.UtcNow;
+
+            try
+            {
+                await _dbContext.SaveChangesAsync(cancellationToken);
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                _dbContext.Entry(nodePort).State = EntityState.Detached;
+                return await AllocatePortAsync(cancellationToken);
+            }
+            catch (DbUpdateException dbEx)
+                when (dbEx.InnerException is PostgresException {SqlState: PostgresErrorCodes.UniqueViolation})
+            {
+                _dbContext.Entry(nodePort).State = EntityState.Detached;
+                return await AllocatePortAsync(cancellationToken);
+            }
+
+            return nodePort;
         }
 
         private async Task<NodePort> InitNewPortAsync(CancellationToken cancellationToken)

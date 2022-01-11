@@ -55,10 +55,10 @@ namespace TG.Manager.Service.Application.Background
                         .Where(lb => lb.State == NodePortState.Active && lb.LastUpdate <= terminatingTime)
                         .ToListAsync(stoppingToken);
 
-                    inactivePorts.ForEach(lb =>
+                    inactivePorts.ForEach(nodePort =>
                     {
-                        lb.State = NodePortState.Terminating;
-                        lb.LastUpdate = _dateTimeProvider.UtcNow;
+                        nodePort.State = NodePortState.Terminating;
+                        nodePort.LastUpdate = _dateTimeProvider.UtcNow;
                     });
                     await dbContext.SaveChangesAsync(stoppingToken);
 
@@ -68,17 +68,18 @@ namespace TG.Manager.Service.Application.Background
                         .Where(lb => lb.State == NodePortState.Disposing)
                         .ToListAsync(stoppingToken);
                     await Task.WhenAll(
-                        disposingLbs.Select(async lb =>
+                        disposingLbs.Select(async nodePort =>
                         {
                             try
                             {
-                                await _kubernetes.ReadNamespacedServiceWithHttpMessagesAsync(lb.SvcName,
+                                await _kubernetes.ReadNamespacedServiceWithHttpMessagesAsync(nodePort.SvcName,
                                     K8sNamespaces.Tg, cancellationToken: stoppingToken);
                             }
                             catch (HttpOperationException httpEx) when (httpEx.Response?.StatusCode == HttpStatusCode.NotFound)
                             {
-                                lb.State = NodePortState.Inactive;
-                                lb.LastUpdate = _dateTimeProvider.UtcNow;
+                                nodePort.State = NodePortState.Inactive;
+                                nodePort.SvcName = null;
+                                nodePort.LastUpdate = _dateTimeProvider.UtcNow;
                             }
                         })
                     );
@@ -89,11 +90,11 @@ namespace TG.Manager.Service.Application.Background
                         .Where(lb => lb.State == NodePortState.Terminating)
                         .ToListAsync(stoppingToken);
                     await Task.WhenAll(
-                        terminatingLbs.Select(lb =>
+                        terminatingLbs.Select(nodePort =>
                         {
-                            lb.State = NodePortState.Disposing;
-                            lb.LastUpdate = _dateTimeProvider.UtcNow;
-                            return _kubernetes.DeleteNamespacedServiceAsync(lb.SvcName, K8sNamespaces.Tg,
+                            nodePort.State = NodePortState.Disposing;
+                            nodePort.LastUpdate = _dateTimeProvider.UtcNow;
+                            return _kubernetes.DeleteNamespacedServiceAsync(nodePort.SvcName, K8sNamespaces.Tg,
                                 cancellationToken: stoppingToken);
                         })
                     );

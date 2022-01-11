@@ -7,8 +7,6 @@ using MediatR;
 using Microsoft.Extensions.Logging;
 using TG.Core.App.Services;
 using TG.Core.Files;
-using TG.Core.ServiceBus;
-using TG.Core.ServiceBus.Messages;
 using TG.Manager.Service.Config;
 using TG.Manager.Service.Db;
 using TG.Manager.Service.Entities;
@@ -22,19 +20,17 @@ namespace TG.Manager.Service.Application.Events
     {
         private readonly ApplicationDbContext _dbContext;
         private readonly IKubernetes _kubernetes;
-        private readonly IQueueProducer<BattleEndedMessage> _queueProducer;
         private readonly IDateTimeProvider _dateTimeProvider;
         private readonly IStorageContainerClient _storage;
         private readonly ILogger<BattleStateChangedEventHandler> _logger;
         private readonly INodeProvider _nodeProvider;
 
         public BattleStateChangedEventHandler(ApplicationDbContext dbContext, IKubernetes kubernetes,
-            IQueueProducer<BattleEndedMessage> queueProducer, IDateTimeProvider dateTimeProvider, IStorageContainerClient storage,
+            IDateTimeProvider dateTimeProvider, IStorageContainerClient storage,
             ILogger<BattleStateChangedEventHandler> logger, INodeProvider nodeProvider)
         {
             _dbContext = dbContext;
             _kubernetes = kubernetes;
-            _queueProducer = queueProducer;
             _dateTimeProvider = dateTimeProvider;
             _storage = storage;
             _logger = logger;
@@ -56,14 +52,8 @@ namespace TG.Manager.Service.Application.Events
             if (notification.State is BattleServerState.Ended)
             {
                 await SaveServerLogsAsync(notification.BattleServer, cancellationToken);
-                await Task.WhenAll(
-                    _kubernetes.DeleteNamespacedDeploymentAsync(notification.BattleServer.DeploymentName,
-                        K8sNamespaces.Tg, cancellationToken: cancellationToken),
-                    _queueProducer.SendMessageAsync(new BattleEndedMessage
-                    {
-                        BattleId = notification.BattleServer.BattleId,
-                        Reason = BattleEndReason.Finished
-                    }));
+                await _kubernetes.DeleteNamespacedDeploymentAsync(notification.BattleServer.DeploymentName,
+                    K8sNamespaces.Tg, cancellationToken: cancellationToken);
             }
         }
 
@@ -82,8 +72,6 @@ namespace TG.Manager.Service.Application.Events
                 _logger.LogError(e, "Failed to fetch logs for battle: " + server.BattleId);
             }
         }
-
-
 
         private static readonly int DeploymentStrLen = "-deployment".Length;
 

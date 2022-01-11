@@ -1,12 +1,9 @@
 ﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
-using k8s;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using TG.Core.App.Services;
-using TG.Core.ServiceBus;
-using TG.Core.ServiceBus.Messages;
 using TG.Manager.Service.Db;
 using TG.Manager.Service.Entities;
 using TG.Manager.Service.Services;
@@ -18,18 +15,13 @@ namespace TG.Manager.Service.Application.Events
     public class TestBattleStateChangedEventHandler : INotificationHandler<TestBattleStateChangedEvent>
     {
         private readonly ApplicationDbContext _dbContext;
-        private readonly IKubernetes _kubernetes;
-        private readonly IQueueProducer<BattleEndedMessage> _queueProducer;
         private readonly IDateTimeProvider _dateTimeProvider;
         private readonly ITestBattlesHelper _testBattlesHelper;
 
-        public TestBattleStateChangedEventHandler(ApplicationDbContext dbContext, IKubernetes kubernetes,
-            IQueueProducer<BattleEndedMessage> queueProducer, IDateTimeProvider dateTimeProvider,
+        public TestBattleStateChangedEventHandler(ApplicationDbContext dbContext, IDateTimeProvider dateTimeProvider,
             ITestBattlesHelper testBattlesHelper)
         {
             _dbContext = dbContext;
-            _kubernetes = kubernetes;
-            _queueProducer = queueProducer;
             _dateTimeProvider = dateTimeProvider;
             _testBattlesHelper = testBattlesHelper;
         }
@@ -59,11 +51,6 @@ namespace TG.Manager.Service.Application.Events
             if (notification.State is BattleServerState.Ended)
             {
                 battleServer.State = BattleServerState.Initializing;
-                await _queueProducer.SendMessageAsync(new BattleEndedMessage
-                {
-                    BattleId = notification.BattleId,
-                    Reason = BattleEndReason.Finished
-                });
             }
             
             await _dbContext.SaveChangesAsync(cancellationToken);

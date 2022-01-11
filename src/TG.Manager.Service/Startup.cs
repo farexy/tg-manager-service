@@ -72,7 +72,6 @@ namespace TG.Manager.Service
             });
             
             services.AddServiceBus(Configuration)
-                .AddQueueProducer<BattleEndedMessage>()
                 .AddQueueConsumer<PrepareBattleMessage, PrepareBattleMessageHandler>();
 
             services.AddTransient<ITestBattlesHelper, TestBattlesHelper>();
