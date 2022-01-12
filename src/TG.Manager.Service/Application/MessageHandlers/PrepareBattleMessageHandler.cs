@@ -63,19 +63,9 @@ namespace TG.Manager.Service.Application.MessageHandlers
             };
             await _dbContext.BattleServers.AddAsync(battleServer, cancellationToken);
 
-            Task svcInitialization;
-            if (nodePort.State == NodePortState.Active)
-            {
-                svcInitialization = Task.CompletedTask;
-                // not to conflict state with LbManager
-                _dbContext.Entry(nodePort).Property(port => port.State).IsModified = true;
-            }
-            else
-            {
-                svcInitialization = _kubernetes.CreateNamespacedServiceWithHttpMessagesAsync(
-                    service, K8sNamespaces.Tg, cancellationToken: cancellationToken);
-                nodePort.State = NodePortState.Initializing;
-            }
+            Task svcInitialization = nodePort.State is NodePortState.Initializing
+                ? _kubernetes.CreateNamespacedServiceWithHttpMessagesAsync(service, K8sNamespaces.Tg, cancellationToken: cancellationToken)
+                : Task.CompletedTask;
             nodePort.SvcName = service.Metadata.Name;
             nodePort.LastUpdate = _dateTimeProvider.UtcNow;
 
