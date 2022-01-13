@@ -16,8 +16,8 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="TG.Core.App" Version="1.0.25" />
-    <PackageReference Include="TG.Core.Db.Postgres" Version="1.0.8" />
-    <PackageReference Include="TG.Core.Files" Version="1.0.1" />
+    <PackageReference Include="TG.Core.Db.Postgres" Version="1.0.9" />
+    <PackageReference Include="TG.Core.Files" Version="1.0.2" />
     <PackageReference Include="TG.Core.ServiceBus" Version="1.0.15" />
   </ItemGroup>
 

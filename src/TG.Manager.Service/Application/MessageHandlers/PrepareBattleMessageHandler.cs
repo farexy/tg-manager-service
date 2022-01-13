@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Npgsql;
 using TG.Core.App.Services;
+using TG.Core.Db.Postgres.Extensions;
 using TG.Core.ServiceBus;
 using TG.Core.ServiceBus.Messages;
 using TG.Manager.Service.Config;
@@ -75,6 +76,18 @@ namespace TG.Manager.Service.Application.MessageHandlers
                 _dbContext.SaveChangesAsync(cancellationToken),
                 svcInitialization,
                 deploymentInitialization
+            );
+
+            await _dbContext.SaveChangesAtomicallyAsync(
+                () => Task.WhenAll(svcInitialization, deploymentInitialization),
+                _ =>
+                    Task.Run(() =>
+                            Task.WhenAll(
+                                _kubernetes.DeleteNamespacedDeploymentWithHttpMessagesAsync(battleServer.DeploymentName, K8sNamespaces.Tg, cancellationToken: cancellationToken),
+                                nodePort.State is NodePortState.Initializing
+                                    ? _kubernetes.DeleteNamespacedServiceWithHttpMessagesAsync(nodePort.SvcName, K8sNamespaces.Tg, cancellationToken: cancellationToken)
+                                    : Task.CompletedTask),
+                        cancellationToken)
             );
         }
 
