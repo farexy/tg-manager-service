@@ -90,12 +90,21 @@ namespace TG.Manager.Service.Application.Background
                         .Where(lb => lb.State == NodePortState.Terminating)
                         .ToListAsync(stoppingToken);
                     await Task.WhenAll(
-                        terminatingLbs.Select(nodePort =>
+                        terminatingLbs.Select(async nodePort =>
                         {
                             nodePort.State = NodePortState.Disposing;
                             nodePort.LastUpdate = _dateTimeProvider.UtcNow;
-                            return _kubernetes.DeleteNamespacedServiceAsync(nodePort.SvcName, K8sNamespaces.Tg,
-                                cancellationToken: stoppingToken);
+                            try
+                            {
+                                await _kubernetes.DeleteNamespacedServiceAsync(nodePort.SvcName, K8sNamespaces.Tg,
+                                    cancellationToken: stoppingToken);
+                            }
+                            catch (HttpOperationException httpEx) when (httpEx.Response?.StatusCode == HttpStatusCode.NotFound)
+                            {
+                                nodePort.State = NodePortState.Inactive;
+                                nodePort.SvcName = null;
+                                nodePort.LastUpdate = _dateTimeProvider.UtcNow;
+                            }
                         })
                     );
 
