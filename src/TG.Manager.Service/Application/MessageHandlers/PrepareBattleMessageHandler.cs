@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using k8s;
 using k8s.Models;
+using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Npgsql;
@@ -11,6 +12,7 @@ using TG.Core.App.Services;
 using TG.Core.Db.Postgres.Extensions;
 using TG.Core.ServiceBus;
 using TG.Core.ServiceBus.Messages;
+using TG.Manager.Service.Application.Events;
 using TG.Manager.Service.Config;
 using TG.Manager.Service.Config.Options;
 using TG.Manager.Service.Db;
@@ -27,15 +29,17 @@ namespace TG.Manager.Service.Application.MessageHandlers
         private readonly PortsRange _portsRange;
         private readonly IDateTimeProvider _dateTimeProvider;
         private readonly ITestBattlesHelper _testBattlesHelper;
+        private readonly IPublisher _publisher;
 
         public PrepareBattleMessageHandler(ApplicationDbContext dbContext, IKubernetes kubernetes, IOptions<PortsRange> portsRange,
-            IRealtimeServerDeploymentConfigProvider realtimeServerDeploymentConfigProvider, IDateTimeProvider dateTimeProvider, ITestBattlesHelper testBattlesHelper)
+            IRealtimeServerDeploymentConfigProvider realtimeServerDeploymentConfigProvider, IDateTimeProvider dateTimeProvider, ITestBattlesHelper testBattlesHelper, IPublisher publisher)
         {
             _dbContext = dbContext;
             _kubernetes = kubernetes;
             _realtimeServerDeploymentConfigProvider = realtimeServerDeploymentConfigProvider;
             _dateTimeProvider = dateTimeProvider;
             _testBattlesHelper = testBattlesHelper;
+            _publisher = publisher;
             _portsRange = portsRange.Value;
         }
 
@@ -80,15 +84,25 @@ namespace TG.Manager.Service.Application.MessageHandlers
 
             await _dbContext.SaveChangesAtomicallyAsync(
                 () => Task.WhenAll(svcInitialization, deploymentInitialization),
-                _ =>
-                    Task.Run(() =>
-                            Task.WhenAll(
-                                _kubernetes.DeleteNamespacedDeploymentWithHttpMessagesAsync(battleServer.DeploymentName, K8sNamespaces.Tg, cancellationToken: cancellationToken),
-                                nodePort.State is NodePortState.Initializing
-                                    ? _kubernetes.DeleteNamespacedServiceWithHttpMessagesAsync(nodePort.SvcName, K8sNamespaces.Tg, cancellationToken: cancellationToken)
-                                    : Task.CompletedTask),
-                        cancellationToken)
-            );
+                async ex =>
+                {
+                    await Task.WhenAll(
+                        _kubernetes.DeleteNamespacedDeploymentWithHttpMessagesAsync(battleServer.DeploymentName,
+                            K8sNamespaces.Tg, cancellationToken: cancellationToken),
+                        nodePort.State is NodePortState.Initializing
+                            ? _kubernetes.DeleteNamespacedServiceWithHttpMessagesAsync(nodePort.SvcName,
+                                K8sNamespaces.Tg, cancellationToken: cancellationToken)
+                            : Task.CompletedTask);
+                    
+                    if (ex is DbUpdateConcurrencyException)
+                    {
+                        await _dbContext.Entry(nodePort).ReloadAsync(cancellationToken);
+                    }
+                    nodePort.LastUpdate = _dateTimeProvider.UtcNow;
+                    nodePort.State = NodePortState.Inactive;
+                    _dbContext.Remove(battleServer);
+                    await _dbContext.SaveChangesAsync(cancellationToken);
+                });
         }
 
         private async Task<NodePort> AllocatePortAsync(CancellationToken cancellationToken)
@@ -138,6 +152,11 @@ namespace TG.Manager.Service.Application.MessageHandlers
             catch (InvalidOperationException)
             {
                 port = _portsRange.Min;
+            }
+
+            if (port > _portsRange.Max)
+            {
+                await _publisher.Publish(new AllPortsAllocatedEvent(port), cancellationToken);
             }
 
             var nodePort = new NodePort
