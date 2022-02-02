@@ -18,17 +18,18 @@ using TG.Manager.Service.Entities;
 
 namespace TG.Manager.Service.Application.Background
 {
+    // todo concurrency
     public class NodePortsManager : BackgroundService
     {
         private readonly PortsManagerSettings _settings;
         private readonly IServiceProvider _serviceProvider;
         private readonly IDateTimeProvider _dateTimeProvider;
         private readonly IKubernetes _kubernetes;
-        private readonly ILogger<LoadBalancerManager> _logger;
+        private readonly ILogger<NodePortsManager> _logger;
         private readonly PortsRange _portsRange;
 
         public NodePortsManager(IServiceProvider serviceProvider, IOptions<PortsManagerSettings> settings,
-            IDateTimeProvider dateTimeProvider, IKubernetes kubernetes, ILogger<LoadBalancerManager> logger,
+            IDateTimeProvider dateTimeProvider, IKubernetes kubernetes, ILogger<NodePortsManager> logger,
             IOptions<PortsRange> portsRange)
         {
             _serviceProvider = serviceProvider;

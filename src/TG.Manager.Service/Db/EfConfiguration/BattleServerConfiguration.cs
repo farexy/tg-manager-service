@@ -12,6 +12,8 @@ namespace TG.Manager.Service.Db.EfConfiguration
             entity.HasOne(bs => bs.NodePort)
                 .WithOne()
                 .HasForeignKey<BattleServer>(bs => bs.Port);
+            entity.Property(p => p.LastUpdate)
+                .IsConcurrencyToken();
         }
     }
 }

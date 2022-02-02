@@ -12,10 +12,7 @@ using TG.Core.App.Swagger;
 using TG.Core.Db.Postgres;
 using TG.Core.Files.Extensions;
 using TG.Core.Files.Options;
-using TG.Core.ServiceBus.Extensions;
-using TG.Core.ServiceBus.Messages;
 using TG.Manager.Service.Application.Background;
-using TG.Manager.Service.Application.MessageHandlers;
 using TG.Manager.Service.Config;
 using TG.Manager.Service.Config.Options;
 using TG.Manager.Service.Db;
@@ -71,14 +68,15 @@ namespace TG.Manager.Service
                 opt.AppVersion = "1";
             });
             
-            services.AddServiceBus(Configuration)
-                .AddQueueConsumer<PrepareBattleMessage, PrepareBattleMessageHandler>();
+            // services.AddServiceBus(Configuration)
+            //     .AddQueueConsumer<PrepareBattleMessage, PrepareBattleMessageHandler>();
 
             services.AddTransient<ITestBattlesHelper, TestBattlesHelper>();
             services.AddSingleton<IRealtimeServerDeploymentConfigProvider, RealtimeServerDeploymentConfigProvider>();
 
             services.AddSingleton<IKubernetes>(new Kubernetes(Environment.GetK8sConfig()));
             services.AddSingleton<INodeProvider, NodeProvider>();
+            services.AddScoped<IServerPreparer, ServerPreparer>();
 
             services.Configure<BlobStorageOptions>(opt =>
                 opt.StorageAccountUrl = Configuration.GetConnectionString("StorageAccount"));

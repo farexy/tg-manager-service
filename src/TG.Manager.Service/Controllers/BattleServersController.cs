@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using TG.Core.App.Constants;
 using TG.Core.App.InternalCalls;
 using TG.Core.App.OperationResults;
+using TG.Manager.Service.Application.Commands;
 using TG.Manager.Service.Application.Queries;
 using TG.Manager.Service.Config;
 using TG.Manager.Service.Errors;
@@ -30,6 +31,14 @@ namespace TG.Manager.Service.Controllers
             var result = await _mediator.Send(new GetBattleServerQuery(battleId));
             return result.ToActionResult()
                 .NotFound(AppErrors.NotFound)
+                .Ok();
+        }
+
+        [HttpPost]
+        public async Task<ActionResult<BattleServerResponse>> Allocate()
+        {
+            var result = await _mediator.Send(new AllocateBattleServerCommand());
+            return result.ToActionResult()
                 .Ok();
         }
     }

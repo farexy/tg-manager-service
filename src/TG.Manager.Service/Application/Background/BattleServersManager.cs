@@ -18,6 +18,7 @@ using TG.Manager.Service.Entities;
 
 namespace TG.Manager.Service.Application.Background
 {
+    // todo concurrency
     public class BattleServersManager : BackgroundService
     {
         private readonly BsManagerSettings _settings;
@@ -36,7 +37,39 @@ namespace TG.Manager.Service.Application.Background
             _settings = settings.Value;
         }
 
-        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+        protected override Task ExecuteAsync(CancellationToken stoppingToken) => Task.WhenAll(
+            ProcessServersUtilizing(stoppingToken),
+            ProcessServersPooling(stoppingToken));
+
+        private async Task ProcessServersPooling(CancellationToken stoppingToken)
+        {
+            // todo pooling
+            return;
+            while (!stoppingToken.IsCancellationRequested)
+            {
+                using var scope = _serviceProvider.CreateScope();
+                var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+                try
+                {
+                    var metricsQuery = from m in dbContext.BattleServers
+                        select new
+                        {
+                            Allocated = dbContext.BattleServers.Count(x => x.Allocated),
+                            Free = dbContext.BattleServers.Count(x => !x.Allocated)
+                        };
+                    var metrics = await metricsQuery.SingleOrDefaultAsync(stoppingToken);
+                    await Task.Delay(TimeSpan.FromSeconds(_settings.PoolProcessingTimeoutSec), stoppingToken);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, $"Unexpected exception in {nameof(ProcessServersPooling)}");
+                    await Task.Delay(TimeSpan.FromSeconds(_settings.PoolProcessingTimeoutSec), stoppingToken);
+                }
+            }
+        }
+
+
+        private async Task ProcessServersUtilizing(CancellationToken stoppingToken)
         {
             while (!stoppingToken.IsCancellationRequested)
             {
@@ -105,12 +138,13 @@ namespace TG.Manager.Service.Application.Background
                     }
                     else
                     {
-                        await Task.Delay(TimeSpan.FromSeconds(_settings.ProcessingTimeoutSec), stoppingToken);
+                        await Task.Delay(TimeSpan.FromSeconds(_settings.UtilizationProcessingTimeoutSec), stoppingToken);
                     }
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Unexpected exception");
+                    _logger.LogError(ex, $"Unexpected exception in {nameof(ProcessServersUtilizing)}");
+                    await Task.Delay(TimeSpan.FromSeconds(_settings.UtilizationProcessingTimeoutSec), stoppingToken);
                 }
             }
         }

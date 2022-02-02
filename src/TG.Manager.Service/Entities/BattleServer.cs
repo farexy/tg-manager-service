@@ -14,6 +14,8 @@ namespace TG.Manager.Service.Entities
 
         public string DeploymentName { get; set; } = default!;
         
+        public bool Allocated { get; set; }
+        
         public DateTime InitializationTime { get; set; }
         
         public DateTime LastUpdate { get; set; }
